@@ -1,5 +1,5 @@
-#Siamese
-##Fast and Portable Streaming Forward Error Correction in C
+# Siamese
+## Fast and Portable Streaming Forward Error Correction in C
 
 Siamese is a simple, portable, fast library for Forward Error Correction.
 From a stream of input data it generates redundant data that can be used to
