@@ -44,6 +44,7 @@ time improves by using this method.
 
 Example codec usage with error checking omitted:
 
+~~~
     SiameseEncoder encoder = siamese_encoder_create();
     SiameseDecoder decoder = siamese_decoder_create();
 
@@ -71,9 +72,32 @@ Example codec usage with error checking omitted:
 			
 			// Process recovered data here.
 		}
-
+~~~
 		
 There are more detailed examples in `unit_test.cpp`.
+
+
+#### Comparisons
+
+Siamese is fairly different from the other FEC codecs I've released.
+
+All the other ones are block codes, meaning they take a block of input at a time.  Summary:
+
+[cm256](https://github.com/catid/cm256) : GF(256) Cauchy Reed-Solomon block code.  Limited to 255 inputs or outputs.  Input data cannot change between outputs.  Recovery never fails.
+
+[longhair](https://github.com/catid/longhair) : Binary(XOR-only) Cauchy Reed-Solomon block code.  Limited to 255 inputs or outputs.  Inputs must be a multiple of 8 bytes.  Input data cannot change between outputs.  Recovery never fails.
+
+[wirehair](https://github.com/catid/wirehair) : Complex LDPC+HDPC block code.  Up to 64,000 inputs in a block.  Unlimited outputs.  Decoder takes about the same time regardless of number of losses, implying that one lost packet takes a long time to recover.  Input data cannot change between outputs.  Recovery can fail about 1% of the time.
+
+Siamese : Artifically limited to 16,000 inputs.  Artificially limited to 256 outputs.  Inputs *can* change between outputs.  Decoder takes time proportional to the number of losses as O(N^2).
+
+For small loss count it's faster than Wirehair, and past a certain point (~10% loss) encode+decode time is longer than Wirehair.
+
+At lower data rates, Siamese uses a Cauchy Reed-Solomon code: Recovery never fails.
+At higher data rates, Siamese switches to a new structured linear convolutional code: It fails to recover about 1% of the time.
+
+Many of the parameters of the code are tunable to trade between performance and recovery rate.
+
 
 #### Credits
 
