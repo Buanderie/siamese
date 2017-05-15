@@ -41,6 +41,8 @@ For small losses it's faster than Wirehair but for larger losses it is slower.
 By betting that the network has a low (but non-zero) loss rate, median transfer
 time improves by using this method.
 
+Note that for this application, a more suitable library is [fecal](https://github.com/catid/fecal).
+
 
 Example codec usage with error checking omitted:
 
