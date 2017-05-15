@@ -44,6 +44,8 @@ time improves by using this method.
 Note that for this application, a more suitable library is [fecal](https://github.com/catid/fecal).
 
 
+##### Example Usage:
+
 Example codec usage with error checking omitted:
 
 ~~~
