@@ -1,7 +1,7 @@
 # Siamese
-## Fast and Portable Streaming Forward Error Correction in C
+## Fast and Portable Streaming Erasure Correction Codes in C
 
-Siamese is a simple, portable, fast library for Forward Error Correction.
+Siamese is a simple, portable, fast library for Erasure Correction.
 From a stream of input data it generates redundant data that can be used to
 recover the lost originals without using acknowledgements.
 
@@ -9,14 +9,23 @@ Siamese is a streaming erasure code designed for low to medium rate streams
 under 2000 packets per RTT (~3MB/s on the Internet), and modest loss rates
 like 20% or less.  It works on mobile phones and mac/linux/windows computers.
 
-It might be the first software library to enable this.  Please let me know if
-you find software that also does this so I can take a look at the code and
-incorporate any improvements into this library.
 
-For faster file transfer it is better to not use FEC and instead use
-retransmission for the bulk of lost data.
-For higher loss rates it is better to use a stronger FEC library like Wirehair.
-But for more normal situations this is a very useful tool.
+##### What's unique about this approach?
+
+This library implements a new type of convolutional code for erasure correction.
+Since it is not a block code, as soon as recovery data arrives it can be used to recover original data.
+The advantages this provides are explained thoroughly in this article:
+
+[Block or Convolutional AL-FEC Codes? A Performance
+Comparison for Robust Low-Latency Communications](https://hal.inria.fr/hal-01395937v2/document) [1].
+
+~~~
+[1] Vincent Roca, Belkacem Teibi, Christophe Burdinat, Tuan Tran-Thai, C´edric Thienot. Block
+or Convolutional AL-FEC Codes? A Performance Comparison for Robust Low-Latency Communications.
+2017. <hal-01395937v2>
+~~~
+
+For each recovery symbol that it produces, it stores and reuses some of the intermediate work, so that producing the next symbol takes much less time than usual.  As a side-effect, this approach only works for full (not partial) reliable data delivery.
 
 
 ##### Target application: Writing a rUDP Protocol
@@ -40,6 +49,11 @@ channels where almost all the data is expected to arrive with < 20% loss rate.
 For small losses it's faster than Wirehair but for larger losses it is slower.
 By betting that the network has a low (but non-zero) loss rate, median transfer
 time improves by using this method.
+
+For faster file transfer it is better to not use erasure correction codes and instead use
+retransmission for the bulk of lost data.
+For higher loss rates it is better to use a faster library like Wirehair.
+But for more normal situations this is a very useful tool.
 
 Note that for this application, a more suitable library is [fecal](https://github.com/catid/fecal).
 
