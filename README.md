@@ -45,33 +45,33 @@ its custom memory allocator to help implement outgoing data queues.
 Example codec usage with error checking omitted:
 
 ~~~
-    SiameseEncoder encoder = siamese_encoder_create();
-    SiameseDecoder decoder = siamese_decoder_create();
+SiameseEncoder encoder = siamese_encoder_create();
+SiameseDecoder decoder = siamese_decoder_create();
 
-	// For each original datagram:
-	
-		SiameseOriginalPacket original;
-		original.Data = buffer;
-		original.DataBytes = bytes;
+// For each original datagram:
 
-		siamese_encoder_add(encoder, &original);
-		siamese_decoder_add_original(decoder, &original);
+SiameseOriginalPacket original;
+original.Data = buffer;
+original.DataBytes = bytes;
 
-	// For each recovery datagram:
+siamese_encoder_add(encoder, &original);
+siamese_decoder_add_original(decoder, &original);
 
-		SiameseRecoveryPacket recovery;
-		siamese_encode(encoder, &recovery);
+// For each recovery datagram:
 
-		siamese_decoder_add_recovery(decoder, &recovery);
+SiameseRecoveryPacket recovery;
+siamese_encode(encoder, &recovery);
 
-		if (0 == siamese_decoder_is_ready(decoder))
-		{
-			SiameseOriginalPacket* recovered = nullptr;
-			unsigned recoveredCount = 0;
-			siamese_decode(decoder, &recovered, &recoveredCount);
-			
-			// Process recovered data here.
-		}
+siamese_decoder_add_recovery(decoder, &recovery);
+
+if (0 == siamese_decoder_is_ready(decoder))
+{
+	SiameseOriginalPacket* recovered = nullptr;
+	unsigned recoveredCount = 0;
+	siamese_decode(decoder, &recovered, &recoveredCount);
+
+	// Process recovered data here.
+}
 ~~~
 		
 There are more detailed examples in `unit_test.cpp`.
