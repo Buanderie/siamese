@@ -1,8 +1,8 @@
 # Siamese
 ## Fast and Portable Streaming Erasure Correction Codes in C
 
-Siamese is a simple, portable, fast library for Erasure Correction.
-From a stream of input data it generates redundant data that can be used to
+Siamese is a fast and portable library for Erasure Correction.
+From a real-time stream of input data it generates redundant data that can be used to
 recover the lost originals without using acknowledgements.
 
 Siamese is a streaming erasure code designed for low to medium rate streams
@@ -27,6 +27,8 @@ or Convolutional AL-FEC Codes? A Performance Comparison for Robust Low-Latency C
 
 For each recovery symbol that it produces, it stores and reuses some of the intermediate work, so that producing the next symbol takes much less time than usual.  As a side-effect, this approach only works for full (not partial) reliable data delivery.
 
+There is also a block code (rather than streaming) implementation here: [fecal](https://github.com/catid/fecal).  It's easier to understand the new convolutional code math by reading through the encoder of that software and its readme.
+
 
 ##### Target application: Writing a rUDP Protocol
 
@@ -36,26 +38,6 @@ of time for the trickier parts of the code to write.
 It can also generate selective acknowledgements and retransmitted data to be
 useful as the core engine of a Hybrid ARQ transport protocol, and it exposes
 its custom memory allocator to help implement outgoing data queues.
-
-
-##### Target application: Sending a multi-part file quickly
-
-* If you're trying to send a file with under 2000 pieces (e.g. <3 MB of data
-on the Internet) as fast as possible, then you can use this library to generate
-some arbitrary amount of recovery data faster than Wirehair.
-
-Recovery speed is proportional to the amount of loss, so this is efficient for
-channels where almost all the data is expected to arrive with < 20% loss rate.
-For small losses it's faster than Wirehair but for larger losses it is slower.
-By betting that the network has a low (but non-zero) loss rate, median transfer
-time improves by using this method.
-
-For faster file transfer it is better to not use erasure correction codes and instead use
-retransmission for the bulk of lost data.
-For higher loss rates it is better to use a faster library like Wirehair.
-But for more normal situations this is a very useful tool.
-
-Note that for this application, a more suitable library is [fecal](https://github.com/catid/fecal).
 
 
 ##### Example Usage:
