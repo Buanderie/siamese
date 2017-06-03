@@ -1,5 +1,5 @@
 # Siamese
-## Fast and Portable Streaming Erasure Correction Codes in C
+## Fast and Portable Real-Time Streaming Erasure Correction Codes in C
 
 Siamese is a fast and portable library for Erasure Correction.
 From a real-time stream of input data it generates redundant data that can be used to
