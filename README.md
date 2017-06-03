@@ -99,6 +99,36 @@ At higher data rates, Siamese switches to a new structured linear convolutional 
 Many of the parameters of the code are tunable to trade between performance and recovery rate.
 
 
+#### How Siamese works
+
+The library uses Siamese Codes for a structured convolutional matrix. This matrix has a fast matrix-vector product involving mostly XOR operations. This allows Siamese Codes to encode and decode much faster than other convolutional codes built on Cauchy or Vandermonde matrices. Let's call this the Siamese Matrix Structure or something similar.
+
+To produce an output packet, some preprocessing is performed.
+
+The input data is first split into 8 "lanes" where every 8th symbol {e.g. 0, 8, 16, 24, ...} is summed together. The second "lane" starts from input symbol 1 and contains every 8th symbol after that {e.g. 1, 9, 17, 25, ...}.
+
+For each "lane" there are three running "sums":
+
+Sum 0: Simple XOR between all inputs in that lane.
+Sum 1: Each input is multiplied by a coefficient provided by GetColumnValue, and then XORed into the sum.
+Sum 2: Each input is multiplied by the same coefficient squared, and then XORed into the sum.
+This means there are 24 running sums, each with symbol_bytes bytes of data.
+
+When an output is being produced (encoded), two running sums are formed temporarily. Both are generated through the same process, and the result of one sum is multiplied by a row coefficient produced by the GetRowValue function and added to the other sum to produce the output.
+
+To produce each of the two sums, a formula is followed. For each lane, the GetRowOpcode function returns which sums should be used. Sums 0, 1, and 2 are incorporated in based on the function output. And then 1/16 of the input data are selected at random and XORed into each sum.
+
+The Siamese codec and the Fecal decoder both will compute lane sums only when they are needed. Since some of the 24 sums (about 50%) are unneeded, the number of operations will vary for each row.
+
+The final random XOR is similar to an LDPC code and allows the recovery properties of the code to perform well on a larger scale above about 32 input symbols. The GF(2^^8) multiplies dominate the recovery properties for smaller losses and input symbols. The specific code used was selected by experimenting with different parameters until a desired failure rate was achieved with good performance characteristics.
+
+As a result the Siamese Codes mainly use XORs. So it can run a lot faster than straight GF(2^^8) multiply-add operations. Since they are still Convolutional Codes, the Siamese Codes also lend themselves to streaming use case.
+
+When AVX2 and SSSE3 are unavailable, Siamese takes 4x longer to decode and 2.6x longer to encode. Encoding requires a lot more simple XOR ops so it is still pretty fast. Decoding is usually really quick because average loss rates are low, but when needed it requires a lot more GF multiplies requiring table lookups which is slower.
+
+
 #### Credits
 
-This software was written entirely by myself ( Christopher A. Taylor mrcatid@gmail.com ). If you find it useful and would like to buy me a coffee, consider tipping.
+Software by Christopher A. Taylor mrcatid@gmail.com
+
+Please reach out if you need support or would like to collaborate on a project.
