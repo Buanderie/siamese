@@ -74,7 +74,7 @@ if (0 == siamese_decoder_is_ready(decoder))
 }
 ~~~
 		
-There are more detailed examples in `unit_test.cpp`.
+There are more detailed examples in [unit_test.cpp](https://github.com/catid/siamese/blob/master/tests/unit_test.cpp).
 
 
 #### Comparisons
