@@ -79,7 +79,7 @@ There are more detailed examples in `unit_test.cpp`.
 
 #### Comparisons
 
-Siamese is fairly different from the other FEC codecs I've released.
+Siamese is fairly different from the other erasure coding software I've released.
 
 All the other ones are block codes, meaning they take a block of input at a time.  Summary:
 
