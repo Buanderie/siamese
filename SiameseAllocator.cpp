@@ -151,7 +151,6 @@ bool Allocator::IntegrityCheck() const
     unsigned ii = 0;
     for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
-        SIAMESE_DEBUG_ASSERT(windowHeader->Prev == nullptr);
         if (ii >= PreferredWindowsCount)
         {
             SIAMESE_DEBUG_BREAK; // Should never happen
@@ -268,6 +267,8 @@ uint8_t* Allocator::Allocate(unsigned bytes)
     if (bytes <= 0)
         return nullptr;
 
+    ALLOC_DEBUG_INTEGRITY_CHECK();
+
     // Calculate number of units required by this allocation
     // Note: +1 for the AllocationHeader
     const unsigned units = (bytes + kOverallocationBytes + kUnitSize - 1) / kUnitSize + 1;
@@ -346,8 +347,6 @@ uint8_t* Allocator::Allocate(unsigned bytes)
 
 void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
 {
-    ALLOC_DEBUG_INTEGRITY_CHECK();
-
     unsigned movedCount = 0;
     WindowHeader* moveHead = FullWindowsHead;
     WindowHeader* keepHead = nullptr;
@@ -368,7 +367,8 @@ void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
             if (keepTail)
                 keepTail->Next = windowHeader;
             else
-                keepHead = keepTail = windowHeader;
+                keepHead = windowHeader;
+            keepTail = windowHeader;
         }
         else
         {
@@ -401,12 +401,15 @@ void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
         {
             PreferredWindowsTail->Next = keepHead;
             PreferredWindowsTail = keepTail;
+            keepTail->Next = nullptr;
         }
     }
     else
     {
         PreferredWindowsHead = keepHead;
         PreferredWindowsTail = keepTail;
+        if (keepHead)
+            keepTail->Next = nullptr;
     }
 
     ALLOC_DEBUG_INTEGRITY_CHECK();

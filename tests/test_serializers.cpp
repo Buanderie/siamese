@@ -37,7 +37,7 @@ using namespace std;
 #include "../siamese.h"
 #include "../SiameseCommon.h"
 
-#define ENABLE_TEST_SERIALIZERS
+//#define ENABLE_TEST_SERIALIZERS
 
 inline void Assert(unsigned N, bool condition)
 {

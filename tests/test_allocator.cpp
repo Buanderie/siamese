@@ -36,7 +36,7 @@ using namespace std;
 #include "../SiameseAllocator.h"
 #include "../SiameseAllocator.cpp"
 
-//#define ENABLE_TEST_ALLOCATOR
+#define ENABLE_TEST_ALLOCATOR
 #define ENABLE_TEST_REALLOC
 
 void TestAllocator()
