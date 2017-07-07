@@ -28,6 +28,12 @@
 
 #include "SiameseAllocator.h"
 
+#ifdef SIAMESE_DEBUG
+    #define ALLOC_DEBUG_INTEGRITY_CHECK() IntegrityCheck();
+#else
+    #define ALLOC_DEBUG_INTEGRITY_CHECK() do {} while (false);
+#endif
+
 namespace siamese {
 
 
@@ -71,27 +77,31 @@ Allocator::Allocator()
     HugeChunkStart = SIMDSafeAllocate(kWindowSizeBytes * kPreallocatedWindows);
     if (HugeChunkStart)
     {
-        WindowHeader* head   = nullptr;
         uint8_t* windowStart = HugeChunkStart;
 
+        PreferredWindowsHead = nullptr;
+        PreferredWindowsTail = (WindowHeader*)windowStart;
+        PreferredWindowsCount = kPreallocatedWindows;
+
         // For each window to preallocate:
-        for (unsigned i = 0; i < kPreallocatedWindows; ++i, windowStart += kWindowSizeBytes)
+        for (unsigned i = 0; i < kPreallocatedWindows; ++i)
         {
             WindowHeader* windowHeader = (WindowHeader*)windowStart;
+            windowStart += kWindowSizeBytes;
+
             windowHeader->Used.ClearAll();
             windowHeader->FreeUnitCount    = kWindowMaxUnits;
             windowHeader->ResumeScanOffset = 0;
-            windowHeader->Next             = head;
+            windowHeader->Prev             = nullptr;
+            windowHeader->Next             = PreferredWindowsHead;
             windowHeader->InFullList       = false;
             windowHeader->Preallocated     = true;
-
-            head = windowHeader;
+ 
+            PreferredWindowsHead = windowHeader;
         }
-
-        PreferredWindowsCount = kPreallocatedWindows;
-        PreferredWindowsHead  = head;
-        PreferredWindowsTail  = (WindowHeader*)windowStart;
     }
+
+    ALLOC_DEBUG_INTEGRITY_CHECK();
 }
 
 Allocator::~Allocator()
@@ -128,12 +138,20 @@ unsigned Allocator::GetMemoryAllocatedBytes() const
 
 bool Allocator::IntegrityCheck() const
 {
+#ifdef SIAMESE_ALLOCATOR_SHRINK
+    SIAMESE_DEBUG_ASSERT(PreferredWindowsCount >= EmptyWindowCount);
+#endif // SIAMESE_ALLOCATOR_SHRINK
+
     unsigned emptyCount = 0;
     unsigned preallocatedCount = 0;
+
+    SIAMESE_DEBUG_ASSERT(!PreferredWindowsHead || PreferredWindowsHead->Prev == nullptr);
+    SIAMESE_DEBUG_ASSERT(!PreferredWindowsTail || PreferredWindowsTail->Next == nullptr);
 
     unsigned ii = 0;
     for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
+        SIAMESE_DEBUG_ASSERT(windowHeader->Prev == nullptr);
         if (ii >= PreferredWindowsCount)
         {
             SIAMESE_DEBUG_BREAK; // Should never happen
@@ -174,10 +192,14 @@ bool Allocator::IntegrityCheck() const
         else if (windowHeader->FreeUnitCount == kWindowMaxUnits)
             ++emptyCount;
     }
+    SIAMESE_DEBUG_ASSERT(ii == PreferredWindowsCount);
 
     ii = 0;
-    for (WindowHeader* windowHeader = FullWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++ii)
+    for (WindowHeader* windowHeader = FullWindowsHead, *prev = nullptr; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
+        SIAMESE_DEBUG_ASSERT(windowHeader->Prev == prev);
+        prev = windowHeader;
+
         if (ii >= FullWindowsCount)
         {
             SIAMESE_DEBUG_BREAK; // Should never happen
@@ -224,6 +246,8 @@ bool Allocator::IntegrityCheck() const
         if (windowHeader->Preallocated)
             ++preallocatedCount;
     }
+    SIAMESE_DEBUG_ASSERT(ii == FullWindowsCount);
+
     if (preallocatedCount != kPreallocatedWindows)
     {
         SIAMESE_DEBUG_BREAK; // Should never happen
@@ -283,9 +307,6 @@ uint8_t* Allocator::Allocate(unsigned bytes)
 
             // Carve out region
             uint8_t* region = (uint8_t*)windowHeader + kWindowHeaderBytes + regionStart * kUnitSize;
-#ifdef SIAMESE_SCRUB_MEMORY
-            memset(region, 0, units * kUnitSize);
-#endif
             AllocationHeader* regionHeader = (AllocationHeader*)region;
             regionHeader->Header    = windowHeader;
             regionHeader->UsedUnits = units;
@@ -306,6 +327,9 @@ uint8_t* Allocator::Allocate(unsigned bytes)
             MoveFirstFewWindowsToFull(moveStopWindow);
 
             uint8_t* data = region + kUnitSize;
+#ifdef SIAMESE_SCRUB_MEMORY
+            memset(data, 0, (units - 1) * kUnitSize);
+#endif // SIAMESE_SCRUB_MEMORY
             SIAMESE_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
             SIAMESE_DEBUG_ASSERT((uint8_t*)regionHeader >= (uint8_t*)regionHeader->Header + kWindowHeaderBytes);
             SIAMESE_DEBUG_ASSERT(regionHeader->GetUnitStart() < kWindowMaxUnits);
@@ -322,20 +346,7 @@ uint8_t* Allocator::Allocate(unsigned bytes)
 
 void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
 {
-#ifdef SIAMESE_DEBUG
-    unsigned preferredCount = 0;
-    for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++preferredCount)
-    {
-        SIAMESE_DEBUG_ASSERT(!windowHeader->InFullList);
-    }
-    SIAMESE_DEBUG_ASSERT(preferredCount == PreferredWindowsCount);
-    unsigned fullCount = 0;
-    for (WindowHeader* windowHeader = FullWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++fullCount)
-    {
-        SIAMESE_DEBUG_ASSERT(windowHeader->InFullList);
-    }
-    SIAMESE_DEBUG_ASSERT(fullCount == FullWindowsCount);
-#endif
+    ALLOC_DEBUG_INTEGRITY_CHECK();
 
     unsigned movedCount = 0;
     WindowHeader* moveHead = FullWindowsHead;
@@ -380,6 +391,9 @@ void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
     PreferredWindowsCount -= movedCount;
     if (stopWindow)
     {
+#ifdef SIAMESE_DEBUG
+        stopWindow->Prev = nullptr;
+#endif
         PreferredWindowsHead = stopWindow;
         SIAMESE_DEBUG_ASSERT(PreferredWindowsTail != nullptr);
 
@@ -395,24 +409,13 @@ void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
         PreferredWindowsTail = keepTail;
     }
 
-#ifdef SIAMESE_DEBUG
-    preferredCount = 0;
-    for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++preferredCount)
-    {
-        SIAMESE_DEBUG_ASSERT(!windowHeader->InFullList);
-    }
-    SIAMESE_DEBUG_ASSERT(preferredCount == PreferredWindowsCount);
-    fullCount = 0;
-    for (WindowHeader* windowHeader = FullWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++fullCount)
-    {
-        SIAMESE_DEBUG_ASSERT(windowHeader->InFullList);
-    }
-    SIAMESE_DEBUG_ASSERT(fullCount == FullWindowsCount);
-#endif
+    ALLOC_DEBUG_INTEGRITY_CHECK();
 }
 
 uint8_t* Allocator::AllocateFromNewWindow(unsigned units)
 {
+    ALLOC_DEBUG_INTEGRITY_CHECK();
+
     uint8_t* headerStart = SIMDSafeAllocate(kWindowSizeBytes);
     if (!headerStart)
         return nullptr; // Allocation failure
@@ -441,16 +444,21 @@ uint8_t* Allocator::AllocateFromNewWindow(unsigned units)
     regionHeader->UsedUnits = units;
     regionHeader->Freed     = false;
 
-#ifdef SIAMESE_SCRUB_MEMORY
-    memset(regionHeader, 0, units * kUnitSize);
-#endif
     uint8_t* data = (uint8_t*)regionHeader + kUnitSize;
+#ifdef SIAMESE_SCRUB_MEMORY
+    memset(data, 0, (units - 1) * kUnitSize);
+#endif // SIAMESE_SCRUB_MEMORY
     SIAMESE_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
+
+    ALLOC_DEBUG_INTEGRITY_CHECK();
+
     return data;
 }
 
 uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior behavior)
 {
+    ALLOC_DEBUG_INTEGRITY_CHECK();
+
     if (!ptr)
         return Allocate(bytes);
     if (bytes <= 0)
@@ -477,37 +485,6 @@ uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior beh
     if (requestedUnits <= existingUnits)
         return ptr; // No change needed
 
-#ifdef SIAMESE_REALLOCATE_INPLACE
-    // If this is not a fallback allocation:
-    WindowHeader* windowHeader = regionHeader->Header;
-    if (windowHeader)
-    {
-        const unsigned regionStart = regionHeader->GetUnitStart();
-        unsigned regionEnd = regionStart + existingUnits;
-        unsigned targetEnd = regionStart + requestedUnits;
-        SIAMESE_DEBUG_ASSERT(targetEnd > regionEnd);
-
-        // If there may be room:
-        if (targetEnd <= kWindowMaxUnits)
-        {
-            SIAMESE_DEBUG_ASSERT(regionEnd < kWindowMaxUnits);
-            unsigned foundUsed = windowHeader->Used.FindFirstSet(regionEnd, targetEnd);
-
-            // If there is room:
-            if (foundUsed >= targetEnd)
-            {
-                windowHeader->Used.SetRange(regionEnd, targetEnd);
-                windowHeader->FreeUnitCount -= requestedUnits - existingUnits;
-
-                regionHeader->UsedUnits += requestedUnits - existingUnits;
-
-                windowHeader->ResumeScanOffset = targetEnd;
-                return ptr;
-            }
-        }
-    }
-#endif // SIAMESE_REALLOCATE_INPLACE
-
     // Allocate new data
     uint8_t* newPtr = Allocate(bytes);
     if (!newPtr)
@@ -519,11 +496,15 @@ uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior beh
 
     Free(ptr);
 
+    ALLOC_DEBUG_INTEGRITY_CHECK();
+
     return newPtr;
 }
 
 void Allocator::Free(uint8_t* ptr)
 {
+    ALLOC_DEBUG_INTEGRITY_CHECK();
+
     if (!ptr)
         return;
     SIAMESE_DEBUG_ASSERT((uintptr_t)ptr % kUnitSize == 0);
@@ -554,11 +535,9 @@ void Allocator::Free(uint8_t* ptr)
 
     unsigned regionEnd = regionStart + units;
 
-#ifdef SIAMESE_RESUME_SCANNING_FROM_HOLES
     // Resume scanning from this hole next time
     if (windowHeader->ResumeScanOffset > regionStart)
         windowHeader->ResumeScanOffset = regionStart;
-#endif
 
     // Clear the units it was using
     windowHeader->Used.ClearRange(regionStart, regionEnd);
@@ -570,8 +549,12 @@ void Allocator::Free(uint8_t* ptr)
     if (windowHeader->FreeUnitCount >= kPreferredThresholdUnits &&
         windowHeader->InFullList)
     {
-        // Push spotty reclaimed window to the end of the PreferredWindows list
+        windowHeader->InFullList = false;
 
+        // Restart scanning from the front
+        windowHeader->ResumeScanOffset = 0;
+
+        // Remove from the FullWindows list
         WindowHeader* prev = windowHeader->Prev;
         WindowHeader* next = windowHeader->Next;
         if (prev)
@@ -581,12 +564,17 @@ void Allocator::Free(uint8_t* ptr)
         if (next)
             next->Prev = prev;
         SIAMESE_DEBUG_ASSERT(FullWindowsCount > 0);
-
         --FullWindowsCount;
-        ++PreferredWindowsCount;
 
-        // And start scanning from the front
-        windowHeader->ResumeScanOffset = 0;
+        // Insert at end of the PreferredWindows list
+        ++PreferredWindowsCount;
+        windowHeader->Prev = nullptr;
+        windowHeader->Next = nullptr;
+        if (PreferredWindowsTail)
+            PreferredWindowsTail->Next = windowHeader;
+        else
+            PreferredWindowsHead = windowHeader;
+        PreferredWindowsTail = windowHeader;
     }
 
 #ifdef SIAMESE_ALLOCATOR_SHRINK
@@ -597,6 +585,8 @@ void Allocator::Free(uint8_t* ptr)
             FreeEmptyWindows();
     }
 #endif
+
+    ALLOC_DEBUG_INTEGRITY_CHECK();
 }
 
 #ifdef SIAMESE_ALLOCATOR_SHRINK
@@ -606,32 +596,33 @@ void Allocator::FreeEmptyWindows()
     if (EmptyWindowCount <= kEmptyWindowMinimum)
         return;
 
-    unsigned preferredCount = (unsigned)PreferredWindows.size();
-    SIAMESE_DEBUG_ASSERT(preferredCount >= EmptyWindowCount);
+    ALLOC_DEBUG_INTEGRITY_CHECK();
 
-    for (unsigned i = 0; i < preferredCount; ++i)
+    for (WindowHeader* windowHeader = PreferredWindowsHead, *next, *prev = nullptr; windowHeader; prev = windowHeader, windowHeader = next)
     {
-        WindowHeader* windowHeader = PreferredWindows[i];
+        next = windowHeader->Next;
+
+        // If this window can be reclaimed:
         if (windowHeader->FreeUnitCount >= kWindowMaxUnits && !windowHeader->Preallocated)
         {
+            if (prev)
+                prev->Next = next;
+            else
+                PreferredWindowsHead = next;
+
             SIMDSafeFree(windowHeader);
-            --preferredCount;
-            PreferredWindows[i] = PreferredWindows[preferredCount];
-            --i;
+
+            --PreferredWindowsCount;
+
             if (--EmptyWindowCount <= kEmptyWindowMinimum)
                 break;
         }
     }
 
-    PreferredWindows.resize(preferredCount);
-    SIAMESE_DEBUG_ASSERT(preferredCount >= EmptyWindowCount);
-
-#ifdef SIAMESE_DEBUG
-    IntegrityCheck();
-#endif
+    ALLOC_DEBUG_INTEGRITY_CHECK();
 }
 
-#endif
+#endif // SIAMESE_ALLOCATOR_SHRINK
 
 uint8_t* Allocator::FallbackAllocate(unsigned bytes)
 {

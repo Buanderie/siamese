@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include "SiameseTools.h"
+
 /*
     Custom Memory Allocator
 
@@ -52,19 +54,12 @@
     + Extra complexity.
 */
 
-#include "SiameseTools.h"
-
-namespace siamese {
-
 
 //------------------------------------------------------------------------------
-// Allocator
+// Precompiler Flags
 
 // Define this to shrink the allocated memory when it is no longer used
 //#define SIAMESE_ALLOCATOR_SHRINK
-
-// After freeing memory, resume scanning for free spots from it if it is earlier
-#define SIAMESE_RESUME_SCANNING_FROM_HOLES
 
 // Zero out allocated memory
 //#define SIAMESE_SCRUB_MEMORY
@@ -72,8 +67,12 @@ namespace siamese {
 // Disable the allocator
 //#define SIAMESE_DISABLE_ALLOCATOR
 
-// Reallocate in-place
-//#define SIAMESE_REALLOCATE_INPLACE
+
+namespace siamese {
+
+
+//------------------------------------------------------------------------------
+// Enumerations
 
 // Maintain data in buffer during reallocation?
 enum class ReallocBehavior
@@ -81,6 +80,10 @@ enum class ReallocBehavior
     Uninitialized,
     CopyExisting
 };
+
+
+//------------------------------------------------------------------------------
+// Allocator
 
 class Allocator
 {
@@ -181,10 +184,10 @@ protected:
         }
     };
 
-    static_assert(kUnitSize >= sizeof(AllocationHeader), "too small");
+    static_assert(kUnitSize >= (unsigned)sizeof(AllocationHeader), "too small");
 
     // Round the window header size up to alignment size
-    static const unsigned kWindowHeaderBytes = (sizeof(WindowHeader) + kAlignmentBytes - 1) & ~(kAlignmentBytes - 1);
+    static const unsigned kWindowHeaderBytes = (unsigned)(sizeof(WindowHeader) + kAlignmentBytes - 1) & ~(kAlignmentBytes - 1);
 
     // Number of bytes per window
     static const unsigned kWindowSizeBytes = kWindowHeaderBytes + kWindowMaxUnits * kUnitSize;
