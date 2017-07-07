@@ -37,11 +37,6 @@ namespace siamese {
 #else
     static logging::Channel Logger("Decoder", logging::Level::Silent);
 #endif
-#ifdef SIAMESE_DECODER_DUMP_VERBOSE
-    static logging::Channel PerfLogger("DecoderPerf", logging::Level::Debug);
-#else
-    static logging::Channel PerfLogger("DecoderPerf", logging::Level::Silent);
-#endif
 
 
 //------------------------------------------------------------------------------
@@ -703,7 +698,7 @@ SiameseResult Decoder::DecodeCheckedRegion()
 #ifdef SIAMESE_DECODER_DUMP_SOLVER_PERF
     bool skipLog = CheckedRegion.LostCount <= 1;
     if (!skipLog)
-        PerfLogger.Debug("For ", CheckedRegion.LostCount, " losses:");
+        Logger.Debug("For ", CheckedRegion.LostCount, " losses:");
 
     uint64_t t0 = GetTimeUsec();
 #endif
@@ -767,12 +762,12 @@ SiameseResult Decoder::DecodeCheckedRegion()
 
     if (!skipLog)
     {
-        PerfLogger.Info("RecoveryMatrix.GenerateMatrix: ", (t1 - t0), " usec");
-        PerfLogger.Info("RecoveryMatrix.GaussianElimination: ", (t2 - t1), " usec");
-        PerfLogger.Info("EliminateOriginalData: ", (t3 - t2), " usec");
-        PerfLogger.Info("MultiplyLowerTriangle: ", (t4 - t3), " usec");
-        PerfLogger.Info("BackSubstitution: ", (t5 - t4), " usec");
-        PerfLogger.Info("Cleanup: ", (t6 - t5), " usec");
+        Logger.Info("RecoveryMatrix.GenerateMatrix: ", (t1 - t0), " usec");
+        Logger.Info("RecoveryMatrix.GaussianElimination: ", (t2 - t1), " usec");
+        Logger.Info("EliminateOriginalData: ", (t3 - t2), " usec");
+        Logger.Info("MultiplyLowerTriangle: ", (t4 - t3), " usec");
+        Logger.Info("BackSubstitution: ", (t5 - t4), " usec");
+        Logger.Info("Cleanup: ", (t6 - t5), " usec");
     }
 #endif
 

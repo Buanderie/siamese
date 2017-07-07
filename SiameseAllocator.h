@@ -54,8 +54,6 @@
 
 #include "SiameseTools.h"
 
-#include <vector>
-
 namespace siamese {
 
 
@@ -151,9 +149,12 @@ protected:
         // Offset to resume scanning for a free spot
         unsigned ResumeScanOffset;
 
-        // Index of this window header in the vector that contains it,
-        // or negative for invalid
-        int FullVectorSelfIndex;
+        // Next, prev window header in the set
+        WindowHeader* Next;
+        WindowHeader* Prev;
+
+        // Set to true if this is part of the full list
+        bool InFullList;
 
         // Set to true if this is part of the preallocated chunk
         bool Preallocated;
@@ -188,12 +189,15 @@ protected:
     // Number of bytes per window
     static const unsigned kWindowSizeBytes = kWindowHeaderBytes + kWindowMaxUnits * kUnitSize;
 
-    // Array of preferred windows with lower utilization
+    // List of "preferred" windows with lower utilization
     // We switch Preferred to Full when a scan fails to find an empty slot
-    std::vector<WindowHeader*> PreferredWindows;
+    WindowHeader* PreferredWindowsHead = nullptr;
+    WindowHeader* PreferredWindowsTail = nullptr;
+    unsigned PreferredWindowsCount = 0;
 
-    // Array of full windows with higher utilization
-    std::vector<WindowHeader*> FullWindows;
+    // List of "full" windows with higher utilization
+    WindowHeader* FullWindowsHead = nullptr;
+    unsigned FullWindowsCount = 0;
 
     // We switch Full to Preferred when it drops below 1/4 utilization
     static const unsigned kPreferredThresholdUnits = 3 * kWindowMaxUnits / 4;
@@ -212,11 +216,12 @@ protected:
     void FreeEmptyWindows();
 #endif
 
-    // Move first few Preferred windows to Full array
-    void MoveFirstFewWindowsToFull(unsigned moveCount);
+    // Move windows to full list between [PreferredWindowHead, stopWindow) not including stopWindow
+    // If stopWindow is nullptr, then it will attempt to move all windows
+    void MoveFirstFewWindowsToFull(WindowHeader* stopWindow);
 
     // Allocate the units from a new window
-    uint8_t* AllocateNewWindow(unsigned units);
+    uint8_t* AllocateFromNewWindow(unsigned units);
 
     // When we can only fit a few in a window, switch to fallback
 #ifdef SIAMESE_DISABLE_ALLOCATOR

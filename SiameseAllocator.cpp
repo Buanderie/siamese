@@ -68,41 +68,45 @@ Allocator::Allocator()
 {
     static_assert(kAlignmentBytes == kUnitSize, "update SIMDSafeAllocate");
 
-    PreferredWindows.reserve(kPreallocatedWindows);
-    FullWindows.reserve(kPreallocatedWindows);
-
     HugeChunkStart = SIMDSafeAllocate(kWindowSizeBytes * kPreallocatedWindows);
     if (HugeChunkStart)
     {
-        // Preallocate space
+        WindowHeader* head   = nullptr;
         uint8_t* windowStart = HugeChunkStart;
+
+        // For each window to preallocate:
         for (unsigned i = 0; i < kPreallocatedWindows; ++i, windowStart += kWindowSizeBytes)
         {
             WindowHeader* windowHeader = (WindowHeader*)windowStart;
             windowHeader->Used.ClearAll();
-            windowHeader->FreeUnitCount       = kWindowMaxUnits;
-            windowHeader->ResumeScanOffset    = 0;
-            windowHeader->FullVectorSelfIndex = -1;
-            windowHeader->Preallocated        = true;
+            windowHeader->FreeUnitCount    = kWindowMaxUnits;
+            windowHeader->ResumeScanOffset = 0;
+            windowHeader->Next             = head;
+            windowHeader->InFullList       = false;
+            windowHeader->Preallocated     = true;
 
-            PreferredWindows.push_back(windowHeader);
+            head = windowHeader;
         }
+
+        PreferredWindowsCount = kPreallocatedWindows;
+        PreferredWindowsHead  = head;
+        PreferredWindowsTail  = (WindowHeader*)windowStart;
     }
 }
 
 Allocator::~Allocator()
 {
-    const unsigned preferredCount = (unsigned)PreferredWindows.size();
-    for (unsigned i = 0; i < preferredCount; ++i)
+    for (WindowHeader* node = PreferredWindowsHead, *next; node; node = next)
     {
-        if (!PreferredWindows[i]->Preallocated)
-            SIMDSafeFree(PreferredWindows[i]);
+        next = node->Next;
+        if (!node->Preallocated)
+            SIMDSafeFree(node);
     }
-    const unsigned fullCount = (unsigned)FullWindows.size();
-    for (unsigned i = 0; i < fullCount; ++i)
+    for (WindowHeader* node = FullWindowsHead, *next; node; node = next)
     {
-        if (!FullWindows[i]->Preallocated)
-            SIMDSafeFree(FullWindows[i]);
+        next = node->Next;
+        if (!node->Preallocated)
+            SIMDSafeFree(node);
     }
     SIMDSafeFree(HugeChunkStart);
 }
@@ -110,41 +114,41 @@ Allocator::~Allocator()
 unsigned Allocator::GetMemoryUsedBytes() const
 {
     unsigned sum = 0;
-    const unsigned preferredCount = (unsigned)PreferredWindows.size();
-    for (unsigned i = 0; i < preferredCount; ++i)
-    {
-        sum += kWindowMaxUnits - PreferredWindows[i]->FreeUnitCount;
-    }
-    const unsigned fullCount = (unsigned)FullWindows.size();
-    for (unsigned i = 0; i < fullCount; ++i)
-    {
-        sum += kWindowMaxUnits - FullWindows[i]->FreeUnitCount;
-    }
+    for (WindowHeader* node = PreferredWindowsHead; node; node = node->Next)
+        sum += kWindowMaxUnits - node->FreeUnitCount;
+    for (WindowHeader* node = FullWindowsHead; node; node = node->Next)
+        sum += kWindowMaxUnits - node->FreeUnitCount;
     return sum * kUnitSize;
 }
 
 unsigned Allocator::GetMemoryAllocatedBytes() const
 {
-    return (unsigned)((PreferredWindows.size() + FullWindows.size()) * kWindowMaxUnits * kUnitSize);
+    return (unsigned)((PreferredWindowsCount + FullWindowsCount) * kWindowMaxUnits * kUnitSize);
 }
 
 bool Allocator::IntegrityCheck() const
 {
     unsigned emptyCount = 0;
     unsigned preallocatedCount = 0;
-    const unsigned preferredCount = (unsigned)PreferredWindows.size();
-    for (unsigned i = 0; i < preferredCount; ++i)
+
+    unsigned ii = 0;
+    for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
-        WindowHeader* windowHeader = PreferredWindows[i];
-        for (unsigned j = 0; j < preferredCount; ++j)
+        if (ii >= PreferredWindowsCount)
         {
-            if (windowHeader == PreferredWindows[j] && i != j)
+            SIAMESE_DEBUG_BREAK; // Should never happen
+            return false;
+        }
+        unsigned jj = 0;
+        for (WindowHeader* other = PreferredWindowsHead; other; other = other->Next, ++jj)
+        {
+            if (windowHeader == other && ii != jj)
             {
                 SIAMESE_DEBUG_BREAK; // Should never happen
                 return false;
             }
         }
-        if (windowHeader->FullVectorSelfIndex != -1)
+        if (windowHeader->InFullList)
         {
             SIAMESE_DEBUG_BREAK; // Should never happen
             return false;
@@ -170,27 +174,33 @@ bool Allocator::IntegrityCheck() const
         else if (windowHeader->FreeUnitCount == kWindowMaxUnits)
             ++emptyCount;
     }
-    const unsigned fullCount = (unsigned)FullWindows.size();
-    for (unsigned i = 0; i < fullCount; ++i)
+
+    ii = 0;
+    for (WindowHeader* windowHeader = FullWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
-        WindowHeader* windowHeader = FullWindows[i];
-        for (unsigned j = 0; j < preferredCount; ++j)
+        if (ii >= FullWindowsCount)
         {
-            if (windowHeader == PreferredWindows[j])
+            SIAMESE_DEBUG_BREAK; // Should never happen
+            return false;
+        }
+        for (WindowHeader* other = PreferredWindowsHead; other; other = other->Next)
+        {
+            if (windowHeader == other)
             {
                 SIAMESE_DEBUG_BREAK; // Should never happen
                 return false;
             }
         }
-        for (unsigned j = 0; j < fullCount; ++j)
+        unsigned jj = 0;
+        for (WindowHeader* other = FullWindowsHead; other; other = other->Next, ++jj)
         {
-            if (windowHeader == FullWindows[j] && i != j)
+            if (windowHeader == other && ii != jj)
             {
                 SIAMESE_DEBUG_BREAK; // Should never happen
                 return false;
             }
         }
-        if (windowHeader->FullVectorSelfIndex < 0 || (unsigned)windowHeader->FullVectorSelfIndex >= fullCount)
+        if (!windowHeader->InFullList)
         {
             SIAMESE_DEBUG_BREAK; // Should never happen
             return false;
@@ -241,11 +251,9 @@ uint8_t* Allocator::Allocate(unsigned bytes)
     if (units > kFallbackThresholdUnits)
         return FallbackAllocate(bytes);
 
-    const unsigned preferredCount = (unsigned)PreferredWindows.size();
-    for (unsigned i = 0; i < preferredCount; ++i)
+    for (WindowHeader* windowHeader = PreferredWindowsHead, *prev = nullptr; windowHeader; prev = windowHeader, windowHeader = windowHeader->Next)
     {
-        WindowHeader* windowHeader = PreferredWindows[i];
-        SIAMESE_DEBUG_ASSERT(windowHeader->FullVectorSelfIndex == -1);
+        SIAMESE_DEBUG_ASSERT(!windowHeader->InFullList);
 
         if (windowHeader->FreeUnitCount < units)
             continue;
@@ -289,16 +297,16 @@ uint8_t* Allocator::Allocate(unsigned bytes)
                 --EmptyWindowCount;
 #endif
             windowHeader->FreeUnitCount -= units;
-            if (windowHeader->FreeUnitCount == 0)
-                ++i;
             usedMask.SetRange(regionStart, regionStart + units);
             windowHeader->ResumeScanOffset = regionStart + units;
 
+            // Move this window to the full list if we cannot make another allocation of the same size
+            const unsigned kMinRemaining = units;
+            WindowHeader* moveStopWindow = (windowHeader->ResumeScanOffset + kMinRemaining > kWindowMaxUnits) ? windowHeader->Next : windowHeader;
+            MoveFirstFewWindowsToFull(moveStopWindow);
+
             uint8_t* data = region + kUnitSize;
             SIAMESE_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
-
-            if (i > 0)
-                MoveFirstFewWindowsToFull(i);
             SIAMESE_DEBUG_ASSERT((uint8_t*)regionHeader >= (uint8_t*)regionHeader->Header + kWindowHeaderBytes);
             SIAMESE_DEBUG_ASSERT(regionHeader->GetUnitStart() < kWindowMaxUnits);
             SIAMESE_DEBUG_ASSERT(regionHeader->GetUnitStart() + regionHeader->UsedUnits <= kWindowMaxUnits);
@@ -307,85 +315,103 @@ uint8_t* Allocator::Allocate(unsigned bytes)
     }
 
     // Move all preferred windows to full since none of them worked out
-    if (preferredCount > 0)
-        MoveFirstFewWindowsToFull(preferredCount);
+    MoveFirstFewWindowsToFull(nullptr);
 
-    return AllocateNewWindow(units);
+    return AllocateFromNewWindow(units);
 }
 
-void Allocator::MoveFirstFewWindowsToFull(unsigned moveCount)
+void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
 {
-    SIAMESE_DEBUG_ASSERT(moveCount > 0);
-
-    unsigned fullCount = (unsigned)FullWindows.size();
-    unsigned preferredCount = (unsigned)PreferredWindows.size();
-
 #ifdef SIAMESE_DEBUG
-    for (unsigned i = 0; i < (unsigned)PreferredWindows.size(); ++i)
+    unsigned preferredCount = 0;
+    for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++preferredCount)
     {
-        SIAMESE_DEBUG_ASSERT(PreferredWindows[i]->FullVectorSelfIndex == -1);
+        SIAMESE_DEBUG_ASSERT(!windowHeader->InFullList);
     }
-    for (unsigned i = 0; i < (unsigned)FullWindows.size(); ++i)
+    SIAMESE_DEBUG_ASSERT(preferredCount == PreferredWindowsCount);
+    unsigned fullCount = 0;
+    for (WindowHeader* windowHeader = FullWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++fullCount)
     {
-        SIAMESE_DEBUG_ASSERT(FullWindows[i]->FullVectorSelfIndex == (int)i);
+        SIAMESE_DEBUG_ASSERT(windowHeader->InFullList);
     }
+    SIAMESE_DEBUG_ASSERT(fullCount == FullWindowsCount);
 #endif
 
-    for (unsigned i = 0; i < moveCount; ++i)
-    {
-        WindowHeader* windowHeader = PreferredWindows[i];
+    unsigned movedCount = 0;
+    WindowHeader* moveHead = FullWindowsHead;
+    WindowHeader* keepHead = nullptr;
+    WindowHeader* keepTail = nullptr;
 
-        // If the scan offset tripped us to think it was full but we should just start over scanning:
+    for (WindowHeader* windowHeader = PreferredWindowsHead, *next; windowHeader != stopWindow; windowHeader = next)
+    {
+        next = windowHeader->Next;
+
+        // If this window should stay in the preferred list:
         if (windowHeader->FreeUnitCount >= kPreferredThresholdUnits)
         {
-            // Resume from 0
+            // Reset the free block scan from the top for this window since we missed some holes
+            // But we will move it to the end of the preferred list since it seems spotty
             windowHeader->ResumeScanOffset = 0;
 
-            if (i >= preferredCount - 1)
-                break;
-
-            // Move it to the end of the PreferredWindows to allow it to clear out more
-            // Note: This may cycle in another spotty window but that should be pretty rare
-            PreferredWindows[i] = PreferredWindows[preferredCount - 1];
-            PreferredWindows[preferredCount - 1] = windowHeader;
+            // Place it in the "keep" list for now
+            if (keepTail)
+                keepTail->Next = windowHeader;
+            else
+                keepHead = keepTail = windowHeader;
         }
         else
         {
-            // Move to the end of the FullWindows
-            windowHeader->FullVectorSelfIndex = fullCount;
-            FullWindows.resize(fullCount + 1);
-            FullWindows[fullCount] = windowHeader;
-            ++fullCount;
-
-            // Remove it from the PreferredWindows
-            --preferredCount;
-            if (i < preferredCount)
-                PreferredWindows[i] = PreferredWindows[preferredCount];
-            PreferredWindows.resize(preferredCount);
-
-            --i;
-            --moveCount;
-
-            SIAMESE_DEBUG_ASSERT(preferredCount == (unsigned)PreferredWindows.size());
-            SIAMESE_DEBUG_ASSERT(fullCount == (unsigned)FullWindows.size());
+            // Move the window to the full list
+            windowHeader->InFullList = true;
+            ++movedCount;
+            windowHeader->Next = moveHead;
+            if (moveHead)
+                moveHead->Prev = windowHeader;
+            windowHeader->Prev = nullptr;
+            moveHead = windowHeader;
         }
     }
 
+    // Update FullWindows list
+    FullWindowsHead = moveHead;
+    FullWindowsCount += movedCount;
+
+    // Update PreferredWindows list
+    PreferredWindowsCount -= movedCount;
+    if (stopWindow)
+    {
+        PreferredWindowsHead = stopWindow;
+        SIAMESE_DEBUG_ASSERT(PreferredWindowsTail != nullptr);
+
+        if (keepHead)
+        {
+            PreferredWindowsTail->Next = keepHead;
+            PreferredWindowsTail = keepTail;
+        }
+    }
+    else
+    {
+        PreferredWindowsHead = keepHead;
+        PreferredWindowsTail = keepTail;
+    }
+
 #ifdef SIAMESE_DEBUG
-    SIAMESE_DEBUG_ASSERT(preferredCount == (unsigned)PreferredWindows.size());
-    SIAMESE_DEBUG_ASSERT(fullCount == (unsigned)FullWindows.size());
-    for (unsigned i = 0; i < (unsigned)PreferredWindows.size(); ++i)
+    preferredCount = 0;
+    for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++preferredCount)
     {
-        SIAMESE_DEBUG_ASSERT(PreferredWindows[i]->FullVectorSelfIndex == -1);
+        SIAMESE_DEBUG_ASSERT(!windowHeader->InFullList);
     }
-    for (unsigned i = 0; i < (unsigned)FullWindows.size(); ++i)
+    SIAMESE_DEBUG_ASSERT(preferredCount == PreferredWindowsCount);
+    fullCount = 0;
+    for (WindowHeader* windowHeader = FullWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++fullCount)
     {
-        SIAMESE_DEBUG_ASSERT(FullWindows[i]->FullVectorSelfIndex == (int)i);
+        SIAMESE_DEBUG_ASSERT(windowHeader->InFullList);
     }
+    SIAMESE_DEBUG_ASSERT(fullCount == FullWindowsCount);
 #endif
 }
 
-uint8_t* Allocator::AllocateNewWindow(unsigned units)
+uint8_t* Allocator::AllocateFromNewWindow(unsigned units)
 {
     uint8_t* headerStart = SIMDSafeAllocate(kWindowSizeBytes);
     if (!headerStart)
@@ -397,11 +423,17 @@ uint8_t* Allocator::AllocateNewWindow(unsigned units)
     windowHeader->Used.SetRange(0, units);
     windowHeader->FreeUnitCount = kWindowMaxUnits - units;
     windowHeader->ResumeScanOffset = units;
-    windowHeader->FullVectorSelfIndex = -1;
+    windowHeader->InFullList = false;
+    windowHeader->Next = PreferredWindowsHead;
     windowHeader->Preallocated = false;
 
-    // Expand the list of preferred windows
-    PreferredWindows.push_back(windowHeader);
+    // Insert into PreferredWindows list
+    if (PreferredWindowsHead)
+        PreferredWindowsHead->Prev = windowHeader;
+    else
+        PreferredWindowsTail = windowHeader;
+    PreferredWindowsHead = windowHeader;
+    ++PreferredWindowsCount;
 
     // Carve out region
     AllocationHeader* regionHeader = (AllocationHeader*)(headerStart + kWindowHeaderBytes);
@@ -536,26 +568,24 @@ void Allocator::Free(uint8_t* ptr)
 
     // If we may want to promote this to Preferred:
     if (windowHeader->FreeUnitCount >= kPreferredThresholdUnits &&
-        windowHeader->FullVectorSelfIndex >= 0)
+        windowHeader->InFullList)
     {
-        const unsigned fullVectorSize = (unsigned)FullWindows.size();
-        const unsigned fullVectorIndex = windowHeader->FullVectorSelfIndex;
-        SIAMESE_DEBUG_ASSERT(fullVectorIndex < fullVectorSize);
-        SIAMESE_DEBUG_ASSERT(FullWindows[fullVectorIndex] == windowHeader);
+        // Push spotty reclaimed window to the end of the PreferredWindows list
 
-        // Swap full
-        if (fullVectorIndex < fullVectorSize - 1)
-        {
-            FullWindows[fullVectorIndex] = FullWindows[fullVectorSize - 1];
-            FullWindows[fullVectorIndex]->FullVectorSelfIndex = fullVectorIndex;
-        }
-        FullWindows.resize(fullVectorSize - 1);
+        WindowHeader* prev = windowHeader->Prev;
+        WindowHeader* next = windowHeader->Next;
+        if (prev)
+            prev->Next = next;
+        else
+            FullWindowsHead = next;
+        if (next)
+            next->Prev = prev;
+        SIAMESE_DEBUG_ASSERT(FullWindowsCount > 0);
 
-        // Add to end of preferred
-        windowHeader->FullVectorSelfIndex = -1;
-        PreferredWindows.push_back(windowHeader);
+        --FullWindowsCount;
+        ++PreferredWindowsCount;
 
-        // Start scanning from the front
+        // And start scanning from the front
         windowHeader->ResumeScanOffset = 0;
     }
 

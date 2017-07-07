@@ -66,14 +66,14 @@ siamese_decoder_add_recovery(decoder, &recovery);
 
 if (0 == siamese_decoder_is_ready(decoder))
 {
-	SiameseOriginalPacket* recovered = nullptr;
-	unsigned recoveredCount = 0;
-	siamese_decode(decoder, &recovered, &recoveredCount);
+    SiameseOriginalPacket* recovered = nullptr;
+    unsigned recoveredCount = 0;
+    siamese_decode(decoder, &recovered, &recoveredCount);
 
-	// Process recovered data here.
+    // Process recovered data here.
 }
 ~~~
-		
+        
 There are more detailed examples in [unit_test.cpp](https://github.com/catid/siamese/blob/master/tests/unit_test.cpp).
 
 

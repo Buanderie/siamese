@@ -46,8 +46,6 @@
 #include "gf256.h"
 
 #ifdef _WIN32
-    #define WIN32_LEAN_AND_MEAN
-
     #ifndef _WINSOCKAPI_
         #define DID_DEFINE_WINSOCKAPI
         #define _WINSOCKAPI_
@@ -55,19 +53,14 @@
     #ifndef NOMINMAX
         #define NOMINMAX
     #endif
-    #ifndef _WIN32_WINNT
-        #define _WIN32_WINNT 0x0601 /* Windows 7+ */
-    #endif
 
     #include <windows.h>
-#endif
 
-#ifdef DID_DEFINE_WINSOCKAPI
-    #undef _WINSOCKAPI_
-    #undef DID_DEFINE_WINSOCKAPI
-#endif
+    #ifdef DID_DEFINE_WINSOCKAPI
+        #undef _WINSOCKAPI_
+        #undef DID_DEFINE_WINSOCKAPI
+    #endif
 
-#ifdef _WIN32
     #include <intrin.h>
 #endif
 
@@ -154,7 +147,7 @@ GF256_FORCE_INLINE unsigned FirstNonzeroBit64(uint64_t x)
 class PCGRandom
 {
 public:
-    inline void Seed(uint64_t y, uint64_t x = 0)
+    void Seed(uint64_t y, uint64_t x = 0)
     {
         State = 0;
         Inc = (y << 1u) | 1u;
@@ -163,7 +156,7 @@ public:
         Next();
     }
 
-    inline uint32_t Next()
+    uint32_t Next()
     {
         const uint64_t oldstate = State;
         State = oldstate * UINT64_C(6364136223846793005) + Inc;
@@ -181,7 +174,7 @@ public:
 
 // Thomas Wang's 32-bit -> 32-bit integer hash function
 // http://burtleburtle.net/bob/hash/integer.html
-inline uint32_t Int32Hash(uint32_t key)
+GF256_FORCE_INLINE uint32_t Int32Hash(uint32_t key)
 {
     key += ~(key << 15);
     key ^= (key >> 10);
@@ -443,11 +436,11 @@ struct Lock
 {
     CRITICAL_SECTION cs;
 
-    Lock() { ::InitializeCriticalSectionAndSpinCount(&cs, 1000); }
-    ~Lock() { ::DeleteCriticalSection(&cs); }
-    bool TryEnter() { return ::TryEnterCriticalSection(&cs) != FALSE; }
-    void Enter() { ::EnterCriticalSection(&cs); }
-    void Leave() { ::LeaveCriticalSection(&cs); }
+    GF256_FORCE_INLINE Lock() { ::InitializeCriticalSectionAndSpinCount(&cs, 1000); }
+    GF256_FORCE_INLINE ~Lock() { ::DeleteCriticalSection(&cs); }
+    GF256_FORCE_INLINE bool TryEnter() { return ::TryEnterCriticalSection(&cs) != FALSE; }
+    GF256_FORCE_INLINE void Enter() { ::EnterCriticalSection(&cs); }
+    GF256_FORCE_INLINE void Leave() { ::LeaveCriticalSection(&cs); }
 };
 
 #else
@@ -458,9 +451,9 @@ struct Lock
 {
     std::recursive_mutex cs;
 
-    bool TryEnter() { return cs.try_lock(); }
-    void Enter() { cs.lock(); }
-    void Leave() { cs.unlock(); }
+    GF256_FORCE_INLINE bool TryEnter() { return cs.try_lock(); }
+    GF256_FORCE_INLINE void Enter() { cs.lock(); }
+    GF256_FORCE_INLINE void Leave() { cs.unlock(); }
 };
 
 #endif
@@ -468,25 +461,25 @@ struct Lock
 class Locker
 {
 public:
-    Locker(Lock& lock) {
+    GF256_FORCE_INLINE Locker(Lock& lock) {
         TheLock = &lock;
         if (TheLock)
             TheLock->Enter();
     }
-    ~Locker() { Clear(); }
-    bool TrySet(Lock& lock) {
+    GF256_FORCE_INLINE ~Locker() { Clear(); }
+    GF256_FORCE_INLINE bool TrySet(Lock& lock) {
         Clear();
         if (!lock.TryEnter())
             return false;
         TheLock = &lock;
         return true;
     }
-    void Set(Lock& lock) {
+    GF256_FORCE_INLINE void Set(Lock& lock) {
         Clear();
         lock.Enter();
         TheLock = &lock;
     }
-    void Clear() {
+    GF256_FORCE_INLINE void Clear() {
         if (TheLock)
             TheLock->Leave();
         TheLock = nullptr;

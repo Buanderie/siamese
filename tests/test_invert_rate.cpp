@@ -1,29 +1,29 @@
 /*
-	Copyright (c) 2016 Christopher A. Taylor.  All rights reserved.
+    Copyright (c) 2016 Christopher A. Taylor.  All rights reserved.
 
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
 
-	* Redistributions of source code must retain the above copyright notice,
-	  this list of conditions and the following disclaimer.
-	* Redistributions in binary form must reproduce the above copyright notice,
-	  this list of conditions and the following disclaimer in the documentation
-	  and/or other materials provided with the distribution.
-	* Neither the name of Siamese nor the names of its contributors may be
-	  used to endorse or promote products derived from this software without
-	  specific prior written permission.
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+    * Neither the name of Siamese nor the names of its contributors may be
+      used to endorse or promote products derived from this software without
+      specific prior written permission.
 
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-	ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-	LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-	CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-	SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-	INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-	CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-	ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-	POSSIBILITY OF SUCH DAMAGE.
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <iostream>
@@ -263,14 +263,14 @@ static bool GenerateTestMatrix_RandomGF16Matrix(GF256Matrix& matrix, int row_sta
 
 static bool GenerateTestMatrix_GrayCodedColumns(GF256Matrix& matrix, int row_start, int row_end, int col_start, int col_end)
 {
-	/*
-		This code requires a small table for each column because there's no modulus on the column count,
-		but it is interesting in that it doesn't require any LDPC to do somewhat okay across the board.
+    /*
+        This code requires a small table for each column because there's no modulus on the column count,
+        but it is interesting in that it doesn't require any LDPC to do somewhat okay across the board.
 
-		It starts failing above about 1000 columns for some reason.  With LDPC added it goes much further.
+        It starts failing above about 1000 columns for some reason.  With LDPC added it goes much further.
 
-		It currently does 4 GFmuls per column but maybe we can do with 1-3 instead with table stretching?
-	*/
+        It currently does 4 GFmuls per column but maybe we can do with 1-3 instead with table stretching?
+    */
     const int rows = row_end - row_start + 1;
     const int cols = col_end - col_start + 1;
 
@@ -297,7 +297,7 @@ static bool GenerateTestMatrix_GrayCodedColumns(GF256Matrix& matrix, int row_sta
         table[1] = basis[1];
         table[2] = basis[2];
         table[3] = basis[3];
-		table[4] = basis[0] ^ basis[1];
+        table[4] = basis[0] ^ basis[1];
         table[5] = basis[1] ^ basis[2];
         table[6] = basis[2] ^ basis[3];
         table[7] = basis[0] ^ basis[3];
@@ -316,8 +316,8 @@ static bool GenerateTestMatrix_GrayCodedColumns(GF256Matrix& matrix, int row_sta
             uint8_t* val = matrix.Get(row - row_start, col - col_start);
 
             // If I multiply column by 211, then it behaves well when rows are lost at random.
-			// But it behaves poorly when columns are lost at random.
-			// My theory is that since the rows are simple linear combinations, they're less useful.
+            // But it behaves poorly when columns are lost at random.
+            // My theory is that since the rows are simple linear combinations, they're less useful.
             int gray_index = 1 + (row + col * 211) % 255;
 
             // If I multiply row by 211, then it behaves well when columns are lost at random.
@@ -399,21 +399,21 @@ static bool GenerateTestMatrix_GrayCodedColumns(GF256Matrix& matrix, int row_sta
 #endif
 
 #if 1
-	for (int row = row_start; row <= row_end; ++row)
-	{
+    for (int row = row_start; row <= row_end; ++row)
+    {
         siamese::PCGRandom prng;
         prng.Seed(row + 1000);
 
-		int randomCols = cols / 8;
+        int randomCols = cols / 8;
 
-		for (int colIndex = 0; colIndex < randomCols; ++colIndex)
-		{
-			int col = col_start + (prng.Next() % cols);
-			uint8_t* val = matrix.Get(row - row_start, col - col_start);
+        for (int colIndex = 0; colIndex < randomCols; ++colIndex)
+        {
+            int col = col_start + (prng.Next() % cols);
+            uint8_t* val = matrix.Get(row - row_start, col - col_start);
 
-			*val ^= 1;
-		}
-	}
+            *val ^= 1;
+        }
+    }
 #endif
 
     //matrix.Print();
@@ -1452,8 +1452,8 @@ int main()
 
     TestMatrixInvertibilityRate();
 
-	int x;
-	cin >> x;
+    int x;
+    cin >> x;
 
     return 0;
 }

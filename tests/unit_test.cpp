@@ -41,9 +41,9 @@ using namespace std;
 #define TEST_VARIABLE_SIZED_DATA
 #define TEST_ENABLE_DECODER
 
-//#define TEST_BLOCK
-//#define TEST_STREAMING
-#define TEST_HARQ_STREAM
+#define TEST_BLOCK
+#define TEST_STREAMING
+//#define TEST_HARQ_STREAM
 
 //#define HARQ_RETRANSMIT_WITH_FEC
 
