@@ -28,7 +28,10 @@
 
 #include "SiameseAllocator.h"
 
-#ifdef SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
+// Enable costly integrity checks before and after each operation
+//#define SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
+
+#if defined(SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS) && defined(SIAMESE_DEBUG)
     #define ALLOC_DEBUG_INTEGRITY_CHECK() IntegrityCheck();
 #else // SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
     #define ALLOC_DEBUG_INTEGRITY_CHECK() do {} while (false);
@@ -316,7 +319,10 @@ uint8_t* Allocator::Allocate(unsigned bytes)
             // Update window header
 #ifdef SIAMESE_ALLOCATOR_SHRINK
             if (windowHeader->FreeUnitCount >= kWindowMaxUnits && !windowHeader->Preallocated)
+            {
+                SIAMESE_DEBUG_ASSERT(EmptyWindowCount > 0);
                 --EmptyWindowCount;
+            }
 #endif // SIAMESE_ALLOCATOR_SHRINK
             windowHeader->FreeUnitCount -= units;
             usedMask.SetRange(regionStart, regionStart + units);
@@ -601,7 +607,7 @@ void Allocator::FreeEmptyWindows()
 
     ALLOC_DEBUG_INTEGRITY_CHECK();
 
-    for (WindowHeader* windowHeader = PreferredWindowsHead, *next, *prev = nullptr; windowHeader; prev = windowHeader, windowHeader = next)
+    for (WindowHeader* windowHeader = PreferredWindowsHead, *next, *prev = nullptr; windowHeader; windowHeader = next)
     {
         next = windowHeader->Next;
 
@@ -612,13 +618,21 @@ void Allocator::FreeEmptyWindows()
                 prev->Next = next;
             else
                 PreferredWindowsHead = next;
+            if (!next)
+                PreferredWindowsTail = prev;
 
             SIMDSafeFree(windowHeader);
 
+            SIAMESE_DEBUG_ASSERT(PreferredWindowsCount > 0);
             --PreferredWindowsCount;
 
+            SIAMESE_DEBUG_ASSERT(EmptyWindowCount > 0);
             if (--EmptyWindowCount <= kEmptyWindowMinimum)
                 break;
+        }
+        else
+        {
+            prev = windowHeader;
         }
     }
 

@@ -67,9 +67,6 @@
 // Disable the allocator
 //#define SIAMESE_DISABLE_ALLOCATOR
 
-// Enable costly integrity checks before and after each operation
-//#define SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
-
 
 namespace siamese {
 
