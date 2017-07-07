@@ -28,11 +28,11 @@
 
 #include "SiameseAllocator.h"
 
-#ifdef SIAMESE_DEBUG
+#ifdef SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
     #define ALLOC_DEBUG_INTEGRITY_CHECK() IntegrityCheck();
-#else
+#else // SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
     #define ALLOC_DEBUG_INTEGRITY_CHECK() do {} while (false);
-#endif
+#endif // SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
 
 namespace siamese {
 
@@ -259,7 +259,7 @@ bool Allocator::IntegrityCheck() const
         SIAMESE_DEBUG_BREAK; // Should never happen
         return false;
     }
-#endif
+#endif // SIAMESE_ALLOCATOR_SHRINK
     return true;
 }
 
@@ -316,7 +316,7 @@ uint8_t* Allocator::Allocate(unsigned bytes)
 #ifdef SIAMESE_ALLOCATOR_SHRINK
             if (windowHeader->FreeUnitCount >= kWindowMaxUnits && !windowHeader->Preallocated)
                 --EmptyWindowCount;
-#endif
+#endif // SIAMESE_ALLOCATOR_SHRINK
             windowHeader->FreeUnitCount -= units;
             usedMask.SetRange(regionStart, regionStart + units);
             windowHeader->ResumeScanOffset = regionStart + units;
@@ -393,7 +393,7 @@ void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
     {
 #ifdef SIAMESE_DEBUG
         stopWindow->Prev = nullptr;
-#endif
+#endif // SIAMESE_DEBUG
         PreferredWindowsHead = stopWindow;
         SIAMESE_DEBUG_ASSERT(PreferredWindowsTail != nullptr);
 
@@ -478,7 +478,7 @@ uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior beh
     const unsigned existingUnits = regionHeader->UsedUnits;
 #ifndef SIAMESE_DISABLE_ALLOCATOR
     SIAMESE_DEBUG_ASSERT(!regionHeader->Header || existingUnits <= kFallbackThresholdUnits);
-#endif
+#endif // SIAMESE_DISABLE_ALLOCATOR
 
     // If the existing allocation is big enough:
     const unsigned requestedUnits = (bytes + kUnitSize - 1) / kUnitSize + 1;
@@ -584,7 +584,7 @@ void Allocator::Free(uint8_t* ptr)
         if (++EmptyWindowCount >= kEmptyWindowCleanupThreshold)
             FreeEmptyWindows();
     }
-#endif
+#endif // SIAMESE_ALLOCATOR_SHRINK
 
     ALLOC_DEBUG_INTEGRITY_CHECK();
 }
