@@ -33,9 +33,10 @@
 using namespace std;
 
 #include "GF256Matrix.h"
-#include "TestTools.h"
+#include "../SiameseTools.h"
+#include "../gf256.h"
 
-//#define ENABLE_TEST_INVERT_RATE
+#define ENABLE_TEST_INVERT_RATE
 
 static uint8_t int2gray(uint8_t num)
 {
@@ -364,7 +365,7 @@ static bool GenerateTestMatrix_GrayCodedColumns(GF256Matrix& matrix, int row_sta
 #if 1
             if (g <= 0)
             {
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
             }
 
             *val = 0;
@@ -452,7 +453,7 @@ static bool GenerateTestMatrix_LinearCombos(GF256Matrix& matrix, int row_start, 
 
             if (g == 0)
             {
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
             }
 
             uint8_t mask = 1;

@@ -98,7 +98,7 @@ struct EncoderSubwindow
 
 struct EncoderPacketWindow
 {
-    Allocator* TheAllocator = nullptr;
+    pktalloc::Allocator* TheAllocator = nullptr;
     EncoderStats* Stats = nullptr;
 
     // Next column number to assign to a packet
@@ -140,26 +140,26 @@ struct EncoderPacketWindow
     EncoderPacketWindow();
 
     // Convert a column to a window element
-    GF256_FORCE_INLINE unsigned ColumnToElement(unsigned column) const
+    SIAMESE_FORCE_INLINE unsigned ColumnToElement(unsigned column) const
     {
         return SubtractColumns(column, ColumnStart);
     }
 
     // Validate that an element is within the window
-    GF256_FORCE_INLINE bool InvalidElement(unsigned element) const
+    SIAMESE_FORCE_INLINE bool InvalidElement(unsigned element) const
     {
         return (element >= Count);
     }
 
     // Convert a window element to a column
-    GF256_FORCE_INLINE unsigned ElementToColumn(unsigned element) const
+    SIAMESE_FORCE_INLINE unsigned ElementToColumn(unsigned element) const
     {
         return AddColumns(element, ColumnStart);
     }
 
     // Get element from the window, indexed by window offset not column number
     // Precondition: 0 <= element < Count
-    GF256_FORCE_INLINE OriginalPacket* GetWindowElement(unsigned windowElement)
+    SIAMESE_FORCE_INLINE OriginalPacket* GetWindowElement(unsigned windowElement)
     {
         SIAMESE_DEBUG_ASSERT(windowElement < Count);
         return &Subwindows[windowElement / kSubwindowSize]->Originals[windowElement % kSubwindowSize];
@@ -215,7 +215,7 @@ struct EncoderPacketWindow
 // State related to the last received acknowledgement
 struct EncoderAcknowledgementState
 {
-    Allocator* TheAllocator = nullptr;
+    pktalloc::Allocator* TheAllocator = nullptr;
     EncoderPacketWindow* TheWindow = nullptr;
 
     // Loss range list raw data, copied from the acknowledgement
@@ -305,11 +305,11 @@ public:
     SiameseResult Get(SiameseOriginalPacket& packet);
 
     // Allocate/Free memory block
-    GF256_FORCE_INLINE uint8_t* Allocate(unsigned bytes)
+    SIAMESE_FORCE_INLINE uint8_t* Allocate(unsigned bytes)
     {
         return TheAllocator.Allocate(bytes);
     }
-    GF256_FORCE_INLINE void Free(uint8_t *ptr)
+    SIAMESE_FORCE_INLINE void Free(uint8_t *ptr)
     {
         TheAllocator.Free(ptr);
     }
@@ -319,7 +319,7 @@ public:
 
 protected:
     // When the allocator goes out of scope all our buffer allocations are freed
-    Allocator TheAllocator;
+    pktalloc::Allocator TheAllocator;
 
     // Collected statistics
     EncoderStats Stats;

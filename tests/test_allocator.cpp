@@ -32,16 +32,15 @@
 #include <vector>
 using namespace std;
 
-#include "TestTools.h"
-#include "../SiameseAllocator.h"
-#include "../SiameseAllocator.cpp"
+#include "../PacketAllocator.h"
+#include "../SiameseTools.h"
 
 #define ENABLE_TEST_ALLOCATOR
 #define ENABLE_TEST_REALLOC
 
 void TestAllocator()
 {
-    siamese::Allocator allocator;
+    pktalloc::Allocator allocator;
 
     cout << "Used at start: " << allocator.GetMemoryUsedBytes() << endl;
     cout << "Allocated at start: " << allocator.GetMemoryAllocatedBytes() << endl;
@@ -190,7 +189,7 @@ void TestAllocator()
             for (unsigned i = 0; i < kAllocationCount; ++i)
             {
                 sizesB[i] = 1 + (prng.Next() % 4000);
-                allocationsB[i] = allocator.Reallocate(allocationsA[i], sizesB[i], siamese::ReallocBehavior::Uninitialized);
+                allocationsB[i] = allocator.Reallocate(allocationsA[i], sizesB[i], pktalloc::Realloc::Uninitialized);
                 memset(allocationsB[i], 3, sizesB[i]);
             }
 

@@ -166,48 +166,48 @@ struct WriteByteStream
         SIAMESE_DEBUG_ASSERT(data != nullptr && bytes > 0);
     }
 
-    GF256_FORCE_INLINE uint8_t* Peek()
+    SIAMESE_FORCE_INLINE uint8_t* Peek()
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes <= BufferBytes);
         return Data + WrittenBytes;
     }
-    GF256_FORCE_INLINE unsigned Remaining()
+    SIAMESE_FORCE_INLINE unsigned Remaining()
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes <= BufferBytes);
         return BufferBytes - WrittenBytes;
     }
 
-    GF256_FORCE_INLINE void Write8(uint8_t value)
+    SIAMESE_FORCE_INLINE void Write8(uint8_t value)
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes + 1 <= BufferBytes);
         Data[WrittenBytes] = value;
         WrittenBytes++;
     }
-    GF256_FORCE_INLINE void Write16(uint16_t value)
+    SIAMESE_FORCE_INLINE void Write16(uint16_t value)
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes + 2 <= BufferBytes);
         WriteU16_LE(Data + WrittenBytes, value);
         WrittenBytes += 2;
     }
-    GF256_FORCE_INLINE void Write24(uint32_t value)
+    SIAMESE_FORCE_INLINE void Write24(uint32_t value)
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes + 3 <= BufferBytes);
         WriteU24_LE(Data + WrittenBytes, value);
         WrittenBytes += 3;
     }
-    GF256_FORCE_INLINE void Write32(uint32_t value)
+    SIAMESE_FORCE_INLINE void Write32(uint32_t value)
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes + 4 <= BufferBytes);
         WriteU32_LE(Data + WrittenBytes, value);
         WrittenBytes += 4;
     }
-    GF256_FORCE_INLINE void Write64(uint64_t value)
+    SIAMESE_FORCE_INLINE void Write64(uint64_t value)
     {
         SIAMESE_DEBUG_ASSERT(WrittenBytes + 8 <= BufferBytes);
         WriteU64_LE(Data + WrittenBytes, value);
         WrittenBytes += 8;
     }
-    GF256_FORCE_INLINE void WriteBuffer(const void* source, unsigned bytes)
+    SIAMESE_FORCE_INLINE void WriteBuffer(const void* source, unsigned bytes)
     {
         SIAMESE_DEBUG_ASSERT(source != nullptr || bytes == 0);
         SIAMESE_DEBUG_ASSERT(WrittenBytes + bytes <= BufferBytes);
@@ -241,57 +241,57 @@ struct ReadByteStream
         BytesRead = 0;
     }
 
-    GF256_FORCE_INLINE const uint8_t* Peek()
+    SIAMESE_FORCE_INLINE const uint8_t* Peek()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead <= BufferBytes);
         return Data + BytesRead;
     }
-    GF256_FORCE_INLINE unsigned Remaining()
+    SIAMESE_FORCE_INLINE unsigned Remaining()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead <= BufferBytes);
         return BufferBytes - BytesRead;
     }
-    GF256_FORCE_INLINE void Skip(unsigned bytes)
+    SIAMESE_FORCE_INLINE void Skip(unsigned bytes)
     {
         SIAMESE_DEBUG_ASSERT(BytesRead + bytes <= BufferBytes);
         BytesRead += bytes;
     }
 
-    GF256_FORCE_INLINE const uint8_t* Read(unsigned bytes)
+    SIAMESE_FORCE_INLINE const uint8_t* Read(unsigned bytes)
     {
         const uint8_t* data = Peek();
         Skip(bytes);
         return data;
     }
-    GF256_FORCE_INLINE uint8_t Read8()
+    SIAMESE_FORCE_INLINE uint8_t Read8()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead + 1 <= BufferBytes);
         uint8_t value = *Peek();
         BytesRead++;
         return value;
     }
-    GF256_FORCE_INLINE uint16_t Read16()
+    SIAMESE_FORCE_INLINE uint16_t Read16()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead + 2 <= BufferBytes);
         uint16_t value = ReadU16_LE(Peek());
         BytesRead += 2;
         return value;
     }
-    GF256_FORCE_INLINE uint32_t Read24()
+    SIAMESE_FORCE_INLINE uint32_t Read24()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead + 3 <= BufferBytes);
         uint32_t value = ReadU24_LE(Peek());
         BytesRead += 3;
         return value;
     }
-    GF256_FORCE_INLINE uint32_t Read32()
+    SIAMESE_FORCE_INLINE uint32_t Read32()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead + 4 <= BufferBytes);
         uint32_t value = ReadU32_LE(Peek());
         BytesRead += 4;
         return value;
     }
-    GF256_FORCE_INLINE uint64_t Read64()
+    SIAMESE_FORCE_INLINE uint64_t Read64()
     {
         SIAMESE_DEBUG_ASSERT(BytesRead + 8 <= BufferBytes);
         uint64_t value = ReadU64_LE(Peek());
@@ -471,7 +471,7 @@ inline int DeserializeHeader_PacketCount(const uint8_t* buffer, unsigned bufferS
 
     if (bufferSpaceBytes < 1)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     if ((buffer[0] & 0x80) == 0)
@@ -482,7 +482,7 @@ inline int DeserializeHeader_PacketCount(const uint8_t* buffer, unsigned bufferS
 
     if (bufferSpaceBytes < 2)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     countOut = (buffer[1] | ((unsigned)buffer[0] << 8)) & 0x7fff;
@@ -519,7 +519,7 @@ inline int DeserializeFooter_PacketCount(const uint8_t* buffer, unsigned bufferS
 
     if (bufferSpaceBytes < 1)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     buffer += bufferSpaceBytes - 1;
@@ -531,7 +531,7 @@ inline int DeserializeFooter_PacketCount(const uint8_t* buffer, unsigned bufferS
 
     if (bufferSpaceBytes < 2)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     countOut = (((unsigned)buffer[0] << 8) | buffer[-1]) & 0x7fff;
@@ -587,7 +587,7 @@ inline int DeserializeHeader_PacketLength(const uint8_t* buffer, unsigned buffer
 {
     if (!buffer || bufferSpaceBytes < 1)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     const int byteCount = (buffer[0] >> 6);
@@ -600,7 +600,7 @@ inline int DeserializeHeader_PacketLength(const uint8_t* buffer, unsigned buffer
     {
         if (bufferSpaceBytes < 2)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return -1;
         }
         lengthOut = (((unsigned)buffer[0] << 8) | buffer[1]) & 0x3fff;
@@ -610,7 +610,7 @@ inline int DeserializeHeader_PacketLength(const uint8_t* buffer, unsigned buffer
     {
         if (bufferSpaceBytes < 3)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return -1;
         }
         lengthOut = (((unsigned)buffer[0] << 16) | ((unsigned)buffer[1] << 8) | buffer[2]) & 0x1fffff;
@@ -619,7 +619,7 @@ inline int DeserializeHeader_PacketLength(const uint8_t* buffer, unsigned buffer
     // 4 bytes:
     if (bufferSpaceBytes < 4)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     lengthOut = (((unsigned)buffer[0] << 24) | ((unsigned)buffer[1] << 16) |
@@ -670,7 +670,7 @@ inline int DeserializeFooter_PacketLength(const uint8_t* buffer, unsigned buffer
 {
     if (!buffer || bufferSpaceBytes < 1)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     buffer += bufferSpaceBytes - 1;
@@ -684,7 +684,7 @@ inline int DeserializeFooter_PacketLength(const uint8_t* buffer, unsigned buffer
     {
         if (bufferSpaceBytes < 2)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return -1;
         }
         lengthOut = (((unsigned)buffer[0] << 8) | buffer[-1]) & 0x3fff;
@@ -694,7 +694,7 @@ inline int DeserializeFooter_PacketLength(const uint8_t* buffer, unsigned buffer
     {
         if (bufferSpaceBytes < 3)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return -1;
         }
         lengthOut = (((unsigned)buffer[0] << 16) | ((unsigned)buffer[-1] << 8) | buffer[-2]) & 0x1fffff;
@@ -703,7 +703,7 @@ inline int DeserializeFooter_PacketLength(const uint8_t* buffer, unsigned buffer
     // 4 bytes:
     if (bufferSpaceBytes < 4)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return -1;
     }
     lengthOut = (((unsigned)buffer[0] << 24) | ((unsigned)buffer[-1] << 16) |
@@ -779,7 +779,7 @@ inline int DeserializeFooter_RecoveryMetadata(const uint8_t* buffer, unsigned bu
             metadataOut.Row = buffer[--bufferSpaceBytes];
         else
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return -1;
         }
     }
@@ -923,7 +923,7 @@ inline int DeserializeHeader_NACKLossRange(const uint8_t* buffer, unsigned buffe
 {
     if (!buffer || bufferSpaceBytes < kMaxLossRangeFieldBytes)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         return -1;
     }
 

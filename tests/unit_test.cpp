@@ -31,10 +31,9 @@
 #include <queue>
 using namespace std;
 
-#include "TestTools.h"
-#include "../SiameseLogging.h"
-
+#include "../Logger.h"
 #include "../siamese.h"
+#include "../SiameseTools.h"
 
 #define ENABLE_UNIT_TEST
 
@@ -53,11 +52,18 @@ static const unsigned kSeed = 1013;
 
 //#define TEST_DATA_ALL_SAME
 
+#ifdef _WIN32
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #include <windows.h>
+#endif
+
 
 #ifdef VERBOSE_STREAMING_LOGS
-    static logging::Channel Logger("UnitTest", logging::Level::Trace);
+    static logger::Channel Logger("UnitTest", logger::Level::Trace);
 #else
-    static logging::Channel Logger("UnitTest", logging::Level::Debug);
+    static logger::Channel Logger("UnitTest", logger::Level::Debug);
 #endif
 
 
@@ -186,7 +192,10 @@ public:
     }
     void Print(unsigned trials)
     {
-        Logger.Info(FunctionName, " called ", Invokations / (float)trials, " times per trial (avg).  ", TotalUsec / (double)Invokations, " usec avg for all invokations.  ", TotalUsec / (float)trials, " usec (avg) of ", trials, " trials");
+        if (Invokations == 0)
+            Logger.Info(FunctionName, " not called");
+        else
+            Logger.Info(FunctionName, " called ", Invokations / (float)trials, " times on avg. ", TotalUsec / (double)Invokations, " usec avg of ", trials, " trials");
     }
 
     uint64_t t0 = 0;
@@ -229,7 +238,7 @@ static void BasicTest()
             if (!encoder)
             {
                 Logger.Error("Unable to create encoder");
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return;
             }
 
@@ -240,7 +249,7 @@ static void BasicTest()
             if (!decoder)
             {
                 Logger.Error("Unable to create decoder");
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return;
             }
 
@@ -267,7 +276,7 @@ static void BasicTest()
                     if (result)
                     {
                         Logger.Error("Unable to add original data to encoder");
-                        SIAMESE_DEBUG_BREAK;
+                        SIAMESE_DEBUG_BREAK();
                         return;
                     }
                 }
@@ -282,7 +291,7 @@ static void BasicTest()
                     if (result)
                     {
                         Logger.Error("Unable to add original data to decoder");
-                        SIAMESE_DEBUG_BREAK;
+                        SIAMESE_DEBUG_BREAK();
                         return;
                     }
                     ++decoderReceiveCount;
@@ -304,7 +313,7 @@ static void BasicTest()
                     t_siamese_encode.EndCall();
                     if (result)
                     {
-                        SIAMESE_DEBUG_BREAK;
+                        SIAMESE_DEBUG_BREAK();
                         Logger.Error("Unable to generate encoded data");
                         return;
                     }
@@ -318,7 +327,7 @@ static void BasicTest()
                     if (result)
                     {
                         Logger.Error("Unable to add recovery data to decoder");
-                        SIAMESE_DEBUG_BREAK;
+                        SIAMESE_DEBUG_BREAK();
                         return;
                     }
                 }
@@ -352,7 +361,7 @@ static void BasicTest()
                             if (!CheckPacket(packets[i].Data, packets[i].DataBytes))
                             {
                                 Logger.Error("Packet check failed for ", i, ".DataBytes = ", packets[i].DataBytes);
-                                SIAMESE_DEBUG_BREAK;
+                                SIAMESE_DEBUG_BREAK();
                                 return;
                             }
 
@@ -372,7 +381,7 @@ static void BasicTest()
                     else
                     {
                         Logger.Error("Decode returned ", decodeResult);
-                        SIAMESE_DEBUG_BREAK;
+                        SIAMESE_DEBUG_BREAK();
                         return;
                     }
                 }
@@ -388,7 +397,7 @@ DoneDecoding:
         }
 
         // Flush the log so we do not miss the last part
-        logging::OutputWorker::GetInstance().Flush();
+        logger::OutputWorker::GetInstance().Flush();
 
         Logger.Info("Using ", lossCount, " recovery packets for ", N, " original packets:");
 
@@ -445,7 +454,7 @@ static void StreamingTest()
     if (!encoder)
     {
         Logger.Error("Unable to create encoder");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -456,7 +465,7 @@ static void StreamingTest()
     if (!decoder)
     {
         Logger.Error("Unable to create decoder");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -484,7 +493,7 @@ static void StreamingTest()
             if (result)
             {
                 Logger.Error("Unable to add original data to encoder. Note overhead count = ", overheadCount, " and total loss = ", lostOriginalCount);
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return;
             }
         }
@@ -508,7 +517,7 @@ static void StreamingTest()
             if (result)
             {
                 Logger.Error("Unable to add original data to decoder");
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return;
             }
         }
@@ -534,7 +543,7 @@ static void StreamingTest()
                     continue;
 
                 Logger.Error("Unable to generate encoded data");
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return;
             }
 
@@ -548,7 +557,7 @@ static void StreamingTest()
                 if (result)
                 {
                     Logger.Error("Unable add recovery data to encoder");
-                    SIAMESE_DEBUG_BREAK;
+                    SIAMESE_DEBUG_BREAK();
                     return;
                 }
 
@@ -578,7 +587,7 @@ static void StreamingTest()
                             if (!CheckPacket(packets[i].Data, packets[i].DataBytes))
                             {
                                 Logger.Error("Corrupted data after decode");
-                                SIAMESE_DEBUG_BREAK;
+                                SIAMESE_DEBUG_BREAK();
                                 return;
                             }
 
@@ -607,7 +616,7 @@ static void StreamingTest()
                                         if (!CheckPacket(original.Data, original.DataBytes))
                                         {
                                             Logger.Error("Corrupted data after decode2");
-                                            SIAMESE_DEBUG_BREAK;
+                                            SIAMESE_DEBUG_BREAK();
                                             return;
                                         }
 
@@ -634,7 +643,7 @@ static void StreamingTest()
                     else
                     {
                         Logger.Error("Unexpected decode result code ", decodeResult);
-                        SIAMESE_DEBUG_BREAK;
+                        SIAMESE_DEBUG_BREAK();
                         return;
                     }
                 }
@@ -653,7 +662,7 @@ static void StreamingTest()
             if (result)
             {
                 Logger.Error("Unable to remove from encoder");
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return;
             }
         }
@@ -661,7 +670,7 @@ static void StreamingTest()
 
 DoneDecoding:
     // Flush the log so we do not miss the last part
-    logging::OutputWorker::GetInstance().Flush();
+    logger::OutputWorker::GetInstance().Flush();
 
     Logger.Info("Streaming completed:");
 
@@ -839,7 +848,7 @@ void HARQSimulation::ClientSendNewVideoData()
     {
         UnrecoverableError = true;
         Logger.Error("Unable to add original data to encoder");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -873,7 +882,7 @@ void HARQSimulation::ClientReceiveData()
                 {
                     UnrecoverableError = true;
                     Logger.Error("Encoder decided ack data was malformed");
-                    SIAMESE_DEBUG_BREAK;
+                    SIAMESE_DEBUG_BREAK();
                     return;
                 }
             }
@@ -888,7 +897,7 @@ void HARQSimulation::ClientReceiveData()
         default:
             UnrecoverableError = true;
             Logger.Error("Invalid s2c protocol opcode");
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return;
         }
     }
@@ -948,7 +957,7 @@ void HARQSimulation::ServerReceiveData()
         default:
             UnrecoverableError = true;
             Logger.Error("Invalid c2s protocol opcode");
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return;
         }
     }
@@ -980,7 +989,7 @@ bool HARQSimulation::ClientRetransmitData()
             {
                 UnrecoverableError = true;
                 Logger.Error("Unable to generate encoded data: ", result);
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return false;
             }
         }
@@ -1021,7 +1030,7 @@ bool HARQSimulation::ClientRetransmitData()
     {
         UnrecoverableError = true;
         Logger.Error("Unexpected error result from encoder retransmit: ", result);
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -1045,7 +1054,7 @@ void HARQSimulation::ClientSendRecoveryData()
         {
             UnrecoverableError = true;
             Logger.Error("Unable to generate encoded data: ", result);
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return;
         }
     }
@@ -1084,7 +1093,7 @@ void HARQSimulation::ServerSendAck()
         {
             UnrecoverableError = true;
             Logger.Error("Unable to generate decoder acknowledgement message: ", result);
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return;
         }
     }
@@ -1156,7 +1165,7 @@ void HARQSimulation::ServerCheckRecovery()
         {
             UnrecoverableError = true;
             Logger.Error("Unexpected siamese decode error result: ", decodeResult);
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return;
         }
     }
@@ -1172,7 +1181,7 @@ void HARQSimulation::ServerOnRecovery(SiameseRecoveryPacket& recovery)
     {
         UnrecoverableError = true;
         Logger.Error("Unable add recovery data to encoder: ", result);
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -1185,7 +1194,7 @@ void HARQSimulation::ServerSimulateProcessingOriginal(SiameseOriginalPacket& ori
     {
         UnrecoverableError = true;
         Logger.Error("Data was corrupted");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -1194,7 +1203,7 @@ void HARQSimulation::ServerSimulateProcessingOriginal(SiameseOriginalPacket& ori
     {
         UnrecoverableError = true;
         Logger.Error("Received data out of order");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -1240,7 +1249,7 @@ void HARQSimulation::ServerOnOriginal(SiameseOriginalPacket& original)
     {
         UnrecoverableError = true;
         Logger.Error("Unable to add original data to decoder");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 }
@@ -1259,7 +1268,7 @@ void HARQSimulation::Run()
     {
         UnrecoverableError = true;
         Logger.Error("Unable to create encoder");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -1271,7 +1280,7 @@ void HARQSimulation::Run()
     {
         UnrecoverableError = true;
         Logger.Error("Unable to create decoder");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return;
     }
 
@@ -1340,7 +1349,7 @@ void HARQSimulation::Run()
     uint64_t simEndMsec = siamese::GetTimeMsec();
 
     // Flush the log so we do not miss the last part
-    logging::OutputWorker::GetInstance().Flush();
+    logger::OutputWorker::GetInstance().Flush();
 
     Logger.Info("Streaming completed:");
 

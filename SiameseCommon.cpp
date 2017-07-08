@@ -35,7 +35,7 @@ namespace siamese {
 //------------------------------------------------------------------------------
 // GrowingAlignedByteMatrix
 
-void GrowingAlignedByteMatrix::Free(Allocator* allocator)
+void GrowingAlignedByteMatrix::Free(pktalloc::Allocator* allocator)
 {
     SIAMESE_DEBUG_ASSERT(allocator);
     if (Data)
@@ -47,19 +47,19 @@ void GrowingAlignedByteMatrix::Free(Allocator* allocator)
     }
 }
 
-bool GrowingAlignedByteMatrix::Initialize(Allocator* allocator, unsigned rows, unsigned columns)
+bool GrowingAlignedByteMatrix::Initialize(pktalloc::Allocator* allocator, unsigned rows, unsigned columns)
 {
     Rows    = rows;
     Columns = columns;
     AllocatedRows    = rows + kExtraRows;
-    AllocatedColumns = NextAlignedOffset(columns + kMinExtraColumns);
+    AllocatedColumns = pktalloc::NextAlignedOffset(columns + kMinExtraColumns);
 
-    Data = allocator->Reallocate(Data, AllocatedRows * AllocatedColumns, ReallocBehavior::Uninitialized);
+    Data = allocator->Reallocate(Data, AllocatedRows * AllocatedColumns, pktalloc::Realloc::Uninitialized);
 
     return Data != nullptr;
 }
 
-bool GrowingAlignedByteMatrix::Resize(Allocator* allocator, unsigned rows, unsigned columns)
+bool GrowingAlignedByteMatrix::Resize(pktalloc::Allocator* allocator, unsigned rows, unsigned columns)
 {
     SIAMESE_DEBUG_ASSERT(allocator && rows > 0 && columns > 0 && columns <= kColumnPeriod);
     if (rows <= AllocatedRows && columns <= AllocatedColumns)
@@ -70,7 +70,7 @@ bool GrowingAlignedByteMatrix::Resize(Allocator* allocator, unsigned rows, unsig
     }
 
     const unsigned allocatedRows    = rows + kExtraRows;
-    const unsigned allocatedColumns = NextAlignedOffset(columns + kMinExtraColumns);
+    const unsigned allocatedColumns = pktalloc::NextAlignedOffset(columns + kMinExtraColumns);
 
     uint8_t* buffer = allocator->Allocate(allocatedRows * allocatedColumns);
     if (!buffer)
@@ -96,7 +96,7 @@ bool GrowingAlignedByteMatrix::Resize(Allocator* allocator, unsigned rows, unsig
             unsigned copyCount = oldColumns;
             if (copyCount > columns)
             {
-                SIAMESE_DEBUG_BREAK; // Should never happen
+                SIAMESE_DEBUG_BREAK(); // Should never happen
                 copyCount = columns;
             }
 
@@ -119,7 +119,7 @@ bool GrowingAlignedByteMatrix::Resize(Allocator* allocator, unsigned rows, unsig
 //------------------------------------------------------------------------------
 // OriginalPacket
 
-unsigned OriginalPacket::Initialize(Allocator* allocator, const SiameseOriginalPacket& packet)
+unsigned OriginalPacket::Initialize(pktalloc::Allocator* allocator, const SiameseOriginalPacket& packet)
 {
     SIAMESE_DEBUG_ASSERT(allocator && packet.Data && packet.DataBytes > 0 && packet.PacketNum < kColumnPeriod);
 

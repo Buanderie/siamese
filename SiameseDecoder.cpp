@@ -27,15 +27,14 @@
 */
 
 #include "SiameseDecoder.h"
-#include "SiameseLogging.h"
 #include "SiameseSerializers.h"
 
 namespace siamese {
 
 #ifdef SIAMESE_DECODER_DUMP_VERBOSE
-    static logging::Channel Logger("Decoder", logging::Level::Debug);
+    static logger::Channel Logger("Decoder", logger::Level::Debug);
 #else
-    static logging::Channel Logger("Decoder", logging::Level::Silent);
+    static logger::Channel Logger("Decoder", logger::Level::Silent);
 #endif
 
 
@@ -96,7 +95,7 @@ SiameseResult Decoder::Get(SiameseOriginalPacket& packetOut)
         headerBytesCheck < 1 || lengthCheck == 0 ||
         lengthCheck + headerBytesCheck != original->Buffer.Bytes)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         Window.EmergencyDisabled = true;
         return Siamese_Disabled;
     }
@@ -147,7 +146,7 @@ SiameseResult Decoder::Acknowledge(uint8_t* buffer, unsigned byteLimit, unsigned
 
     const uint64_t now = GetTimeMsec();
 
-    if (Logger.ShouldLog(logging::Level::Debug))
+    if (Logger.ShouldLog(logger::Level::Debug))
     {
         delete pDebugMsg;
         pDebugMsg = new std::ostringstream();
@@ -293,7 +292,7 @@ SiameseResult Decoder::AddRecovery(const SiameseRecoveryPacket& packet)
     {
         Window.EmergencyDisabled = true;
         Logger.Error("AddRecovery: Corrupt recovery metadata");
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        SIAMESE_DEBUG_BREAK(); // Should never happen
         return Siamese_Disabled;
     }
 
@@ -371,7 +370,7 @@ SiameseResult Decoder::AddRecovery(const SiameseRecoveryPacket& packet)
                 {
                     Window.EmergencyDisabled = true;
                     Logger.Error("Recovery packet cannot be used because we clipped its Sum region already: Received too far out of order? Window.SumColumnCount=", Window.SumColumnCount, ", Window.SumColumnCount=", Window.SumColumnCount, ", metadata.ColumnStart=", metadata.ColumnStart);
-                    SIAMESE_DEBUG_BREAK; // Should never happen
+                    SIAMESE_DEBUG_BREAK(); // Should never happen
                     return Siamese_Disabled;
                 }
             }
@@ -440,7 +439,7 @@ bool Decoder::AddSingleRecovery(const SiameseRecoveryPacket& packet, const Recov
     const unsigned element = Window.ColumnToElement(metadata.ColumnStart);
     if (Window.InvalidElement(element))
     {
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        SIAMESE_DEBUG_BREAK(); // Should never happen
         return false;
     }
 
@@ -464,7 +463,7 @@ bool Decoder::AddSingleRecovery(const SiameseRecoveryPacket& packet, const Recov
         headerBytesCheck < 1 || lengthCheck == 0 ||
         lengthCheck + headerBytesCheck != lengthPlusDataBytes)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         return false;
     }
 #endif // SIAMESE_DEBUG
@@ -479,7 +478,7 @@ bool Decoder::AddSingleRecovery(const SiameseRecoveryPacket& packet, const Recov
     SIAMESE_DEBUG_ASSERT(newHeaderBytes == (unsigned)headerBytes);
     if (0 == newHeaderBytes)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         return false;
     }
     SIAMESE_DEBUG_ASSERT(windowOriginal->Buffer.Bytes > 1);
@@ -817,7 +816,7 @@ bool Decoder::EliminateOriginalData()
                     {
                         if (addBytes > recoveryBuffer.Bytes)
                         {
-                            SIAMESE_DEBUG_BREAK; // Should never happen
+                            SIAMESE_DEBUG_BREAK(); // Should never happen
                             addBytes = recoveryBuffer.Bytes;
                         }
                         gf256_add_mem(recoveryBuffer.Data, original->Buffer.Data, addBytes);
@@ -836,7 +835,7 @@ bool Decoder::EliminateOriginalData()
                         const uint8_t y = CauchyElement(metadata.Row - 1, original->Column % kCauchyMaxColumns);
                         if (addBytes > recoveryBuffer.Bytes)
                         {
-                            SIAMESE_DEBUG_BREAK; // Should never happen
+                            SIAMESE_DEBUG_BREAK(); // Should never happen
                             addBytes = recoveryBuffer.Bytes;
                         }
                         gf256_muladd_mem(recoveryBuffer.Data, y, original->Buffer.Data, addBytes);
@@ -917,7 +916,7 @@ bool Decoder::EliminateOriginalData()
         prng.Seed(metadata.Row, metadata.LDPCCount);
         SIAMESE_DEBUG_ASSERT(metadata.SumCount >= metadata.LDPCCount);
 
-        if (Logger.ShouldLog(logging::Level::Debug))
+        if (Logger.ShouldLog(logger::Level::Debug))
         {
             delete pDebugMsg;
             pDebugMsg = new std::ostringstream();
@@ -934,7 +933,7 @@ bool Decoder::EliminateOriginalData()
             {
                 if (addBytes1 > recoveryBytes)
                 {
-                    SIAMESE_DEBUG_BREAK; // Should never happen
+                    SIAMESE_DEBUG_BREAK(); // Should never happen
                     addBytes1 = recoveryBytes;
                 }
                 gf256_add_mem(recoveryBuffer.Data, original1->Buffer.Data, addBytes1);
@@ -955,7 +954,7 @@ bool Decoder::EliminateOriginalData()
             {
                 if (addBytesRX > recoveryBytes)
                 {
-                    SIAMESE_DEBUG_BREAK; // Should never happen
+                    SIAMESE_DEBUG_BREAK(); // Should never happen
                     addBytesRX = recoveryBytes;
                 }
                 gf256_add_mem(ProductSum.Data, originalRX->Buffer.Data, addBytesRX);
@@ -1046,7 +1045,7 @@ SiameseResult Decoder::BackSubstitution()
 
         // Reveal the first chunk of bytes of data
         unsigned bufferBytes      = recovery->Buffer.Bytes;
-        unsigned lengthCheckBytes = kAlignmentBytes;
+        unsigned lengthCheckBytes = pktalloc::kAlignmentBytes;
         if (lengthCheckBytes > bufferBytes)
             lengthCheckBytes = bufferBytes;
         gf256_div_mem(buffer, buffer, y, lengthCheckBytes);
@@ -1059,7 +1058,7 @@ SiameseResult Decoder::BackSubstitution()
             // If the decode fails for some reason:
             Window.EmergencyDisabled = true;
             Logger.Error("BackSubstitution corrupted recovered data len");
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            SIAMESE_DEBUG_BREAK(); // Should never happen
             return Siamese_Disabled;
         }
 
@@ -1105,7 +1104,7 @@ SiameseResult Decoder::BackSubstitution()
             unsigned addBytes = bufferBytes;
             if (addBytes > buffer_j.Bytes)
             {
-                SIAMESE_DEBUG_BREAK; // This should never happen
+                SIAMESE_DEBUG_BREAK(); // This should never happen
                 addBytes = buffer_j.Bytes;
             }
 
@@ -1118,7 +1117,7 @@ SiameseResult Decoder::BackSubstitution()
     {
         Window.EmergencyDisabled = true;
         Logger.Error("BackSubstitution.iterateNextExpected failed");
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        SIAMESE_DEBUG_BREAK(); // Should never happen
         return Siamese_Disabled;
     }
 
@@ -1164,7 +1163,7 @@ bool DecoderPacketWindow::MarkGotColumn(unsigned column)
     {
         EmergencyDisabled = true;
         Logger.Error("MarkGotColumn failed");
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        SIAMESE_DEBUG_BREAK(); // Should never happen
         return false;
     }
 
@@ -1452,7 +1451,7 @@ bool DecoderPacketWindow::PlugSumHoles(unsigned elementStart)
 
                 if (originalBytes <= 0)
                 {
-                    SIAMESE_DEBUG_BREAK; // Should never happen
+                    SIAMESE_DEBUG_BREAK(); // Should never happen
                     return false;
                 }
 
@@ -1642,7 +1641,7 @@ bool DecoderPacketWindow::IdentifyRemovalPoint(RemovalPoint& pointOut)
         // If there has not been a recent recovery packet:
         if (RecoveryPackets->LastRecovery.IsEmpty())
         {
-            SIAMESE_DEBUG_BREAK; // Should never get here
+            SIAMESE_DEBUG_BREAK(); // Should never get here
             return false;
         }
 
@@ -1743,7 +1742,7 @@ void DecoderPacketWindow::RemoveElements()
             {
                 EmergencyDisabled = true;
                 Logger.Error("RemoveElements failed: Removal point sum start is clipped! removalPoint.SumStartColumn=", removalPoint.SumStartColumn, ", ColumnStart=", ColumnStart);
-                SIAMESE_DEBUG_BREAK; // Should never happen
+                SIAMESE_DEBUG_BREAK(); // Should never happen
                 return;
             }
 
@@ -1905,7 +1904,7 @@ void RecoveryMatrixState::PopulateColumns(const unsigned oldColumns, const unsig
         ++subwindowIndex;
     }
 
-    SIAMESE_DEBUG_BREAK; // Should never get here
+    SIAMESE_DEBUG_BREAK(); // Should never get here
 }
 
 void RecoveryMatrixState::PopulateRows(const unsigned oldRows, const unsigned newRows)
@@ -1945,7 +1944,7 @@ bool RecoveryMatrixState::GenerateMatrix()
     // If we missed a reset somewhere:
     if (rows < oldRows || columns < oldColumns)
     {
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        SIAMESE_DEBUG_BREAK(); // Should never happen
         Reset();
         oldRows    = 0;
         oldColumns = 0;
@@ -1990,7 +1989,7 @@ bool RecoveryMatrixState::GenerateMatrix()
         {
             const unsigned startMatrixColumn = (i < oldRows) ? oldColumns : 0;
 
-            if (Logger.ShouldLog(logging::Level::Debug))
+            if (Logger.ShouldLog(logger::Level::Debug))
             {
                 delete pDebugMsg;
                 pDebugMsg = new std::ostringstream();
@@ -2029,7 +2028,7 @@ bool RecoveryMatrixState::GenerateMatrix()
         // Calculate row multiplier RX
         const uint8_t RX = GetRowValue(metadata.Row);
 
-        if (Logger.ShouldLog(logging::Level::Debug))
+        if (Logger.ShouldLog(logger::Level::Debug))
         {
             delete pDebugMsg;
             pDebugMsg = new std::ostringstream();

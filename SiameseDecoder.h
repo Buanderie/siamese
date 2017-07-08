@@ -253,7 +253,7 @@ struct RemovalPoint
 
 struct RecoveryPacketList
 {
-    Allocator* TheAllocator = nullptr;
+    pktalloc::Allocator* TheAllocator = nullptr;
     CheckedRegionState* CheckedRegion = nullptr;
 
     // Sorted list of recovery packets, ordered from oldest to newest
@@ -299,7 +299,7 @@ struct DecoderSubwindow
     std::array<OriginalPacket, kSubwindowSize> Originals;
 
     // Keeping track of which entries are filled in more efficiently
-    CustomBitSet<kSubwindowSize> Got;
+    pktalloc::CustomBitSet<kSubwindowSize> Got;
     unsigned GotCount = 0;
 
     // Timestamps for when we expected to receive the data
@@ -328,7 +328,7 @@ struct DecoderSubwindow
 
 struct DecoderPacketWindow
 {
-    Allocator* TheAllocator = nullptr;
+    pktalloc::Allocator* TheAllocator = nullptr;
     DecoderStats* Stats = nullptr;
     CheckedRegionState* CheckedRegion = nullptr;
     RecoveryPacketList* RecoveryPackets = nullptr;
@@ -365,31 +365,31 @@ struct DecoderPacketWindow
 
 
     // Are we running any sums right now?
-    GF256_FORCE_INLINE bool IsRunningSums() const
+    SIAMESE_FORCE_INLINE bool IsRunningSums() const
     {
         return SumColumnCount > 0;
     }
 
     // Convert a column to a window element
-    GF256_FORCE_INLINE unsigned ColumnToElement(unsigned column) const
+    SIAMESE_FORCE_INLINE unsigned ColumnToElement(unsigned column) const
     {
         return SubtractColumns(column, ColumnStart);
     }
 
     // Validate that an element is within the window
-    GF256_FORCE_INLINE bool InvalidElement(unsigned element) const
+    SIAMESE_FORCE_INLINE bool InvalidElement(unsigned element) const
     {
         return (element >= Count);
     }
 
     // Convert a window element to a column
-    GF256_FORCE_INLINE unsigned ElementToColumn(unsigned element) const
+    SIAMESE_FORCE_INLINE unsigned ElementToColumn(unsigned element) const
     {
         return AddColumns(element, ColumnStart);
     }
 
     // Get next element at or after the given element that is in the given lane
-    GF256_FORCE_INLINE unsigned GetNextLaneElement(unsigned element, unsigned laneIndex)
+    SIAMESE_FORCE_INLINE unsigned GetNextLaneElement(unsigned element, unsigned laneIndex)
     {
         SIAMESE_DEBUG_ASSERT(element < Count && laneIndex < kColumnLaneCount);
         unsigned nextElement = element - (element % kColumnLaneCount) + laneIndex;
@@ -403,7 +403,7 @@ struct DecoderPacketWindow
 
     // Get element from the window, indexed by window offset not column number
     // Precondition: 0 <= element < Count
-    GF256_FORCE_INLINE OriginalPacket* GetWindowElement(unsigned windowElement)
+    SIAMESE_FORCE_INLINE OriginalPacket* GetWindowElement(unsigned windowElement)
     {
         SIAMESE_DEBUG_ASSERT(windowElement < Count);
         return &Subwindows[windowElement / kSubwindowSize]->Originals[windowElement % kSubwindowSize];
@@ -411,7 +411,7 @@ struct DecoderPacketWindow
 
     // Get element timestamp from the window, indexed by window offset not column number
     // Precondition: 0 <= element < Count
-    GF256_FORCE_INLINE uint64_t GetWindowElementTimestamp(unsigned windowElement)
+    SIAMESE_FORCE_INLINE uint64_t GetWindowElementTimestamp(unsigned windowElement)
     {
         SIAMESE_DEBUG_ASSERT(windowElement < Count);
         return Subwindows[windowElement / kSubwindowSize]->ReceivedTime[windowElement % kSubwindowSize];
@@ -479,7 +479,7 @@ struct DecoderPacketWindow
 
 struct RecoveryMatrixState
 {
-    Allocator* TheAllocator = nullptr;
+    pktalloc::Allocator* TheAllocator = nullptr;
     DecoderPacketWindow* Window = nullptr;
     CheckedRegionState* CheckedRegion = nullptr;
 
@@ -547,7 +547,7 @@ private:
     bool PivotedGaussianElimination(unsigned pivot_i);
 
     // rem_row[] += ge_row[] * y
-    GF256_FORCE_INLINE void MulAddRows(
+    SIAMESE_FORCE_INLINE void MulAddRows(
         const uint8_t* ge_row, uint8_t* rem_row, unsigned columnStart,
         const unsigned columnEnd, uint8_t y)
     {
@@ -567,7 +567,7 @@ private:
     }
 
     // Internal function common to both GE functions, used to eliminate a row of data
-    GF256_FORCE_INLINE bool EliminateRow(
+    SIAMESE_FORCE_INLINE bool EliminateRow(
         const uint8_t* ge_row, uint8_t* rem_row, const unsigned pivot_i,
         const unsigned columnEnd, const uint8_t val_i)
     {
@@ -601,11 +601,11 @@ public:
     Decoder();
 
     SiameseResult AddRecovery(const SiameseRecoveryPacket& packet);
-    GF256_FORCE_INLINE SiameseResult AddOriginal(const SiameseOriginalPacket& packet)
+    SIAMESE_FORCE_INLINE SiameseResult AddOriginal(const SiameseOriginalPacket& packet)
     {
         return Window.AddOriginal(packet);
     }
-    GF256_FORCE_INLINE SiameseResult IsReadyToDecode()
+    SIAMESE_FORCE_INLINE SiameseResult IsReadyToDecode()
     {
         // If there are already recovered packets to return:
         if (Window.HasRecoveredPackets || CheckRecoveryPossible())
@@ -619,7 +619,7 @@ public:
 
 protected:
     // When the allocator goes out of scope all our buffer allocations are freed
-    Allocator TheAllocator;
+    pktalloc::Allocator TheAllocator;
 
     // Collected statistics
     DecoderStats Stats;

@@ -31,9 +31,10 @@
 #include <cassert>
 using namespace std;
 
-#include "TestTools.h"
+#include "../SiameseTools.h"
+#include "../gf256.h"
 
-//#define ENABLE_GENTAB_PRIMES
+#define ENABLE_GENTAB_PRIMES
 #define VERBOSE_PRIMES_TABLE_CREATION
 
 //#define SKIP_EVEN_PRIMES

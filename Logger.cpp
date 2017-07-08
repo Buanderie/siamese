@@ -9,7 +9,7 @@
     * Redistributions in binary form must reproduce the above copyright notice,
       this list of conditions and the following disclaimer in the documentation
       and/or other materials provided with the distribution.
-    * Neither the name of Siamese nor the names of its contributors may be
+    * Neither the name of Logger nor the names of its contributors may be
       used to endorse or promote products derived from this software without
       specific prior written permission.
 
@@ -26,13 +26,21 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "SiameseLogging.h"
+#include "Logger.h"
 
-#ifndef ANDROID
-#include <iostream>
+#if !defined(ANDROID)
+    #include <cstdio> // fwrite, stdout
 #endif
 
-namespace logging {
+#if defined(_WIN32)
+    #if !defined(NOMINMAX)
+        #define NOMINMAX
+    #endif
+    #include <windows.h> // OutputDebugStringA
+#endif
+
+
+namespace logger {
 
 
 //------------------------------------------------------------------------------
@@ -45,7 +53,7 @@ static const char* kLevelStrings[(int)Level::Count] = {
 const char* LevelToString(Level level)
 {
     static_assert((int)Level::Count == 6, "Update this switch");
-    SIAMESE_DEBUG_ASSERT((int)level >= 0 && level < Level::Count);
+    LOGGER_DEBUG_ASSERT((int)level >= 0 && level < Level::Count);
     return kLevelStrings[(int)level];
 }
 
@@ -56,7 +64,7 @@ static const char kLevelChars[(int)Level::Count] = {
 char LevelToChar(Level level)
 {
     static_assert((int)Level::Count == 6, "Update this switch");
-    SIAMESE_DEBUG_ASSERT((int)level >= 0 && level < Level::Count);
+    LOGGER_DEBUG_ASSERT((int)level >= 0 && level < Level::Count);
     return kLevelChars[(int)level];
 }
 
@@ -81,6 +89,8 @@ OutputWorker::OutputWorker()
 
     Start();
 
+    // Register an atexit() callback so we do not need manual shutdown in app code
+    // Application code can still manually shutdown by calling OutputWorker::Stop()
     std::atexit(AtExitWrapper);
 }
 
@@ -88,10 +98,16 @@ void OutputWorker::Start()
 {
     Stop();
 
+#if defined(_WIN32)
+    CachedIsDebuggerPresent = (::IsDebuggerPresent() != FALSE);
+#endif // _WIN32
+
     QueuePublic.clear();
     QueuePrivate.clear();
 
+#if !defined(LOGGER_NEVER_DROP)
     Overrun    = 0;
+#endif // LOGGER_NEVER_DROP
     Terminated = false;
     Thread     = std::make_unique<std::thread>(&OutputWorker::Loop, this);
 }
@@ -118,6 +134,22 @@ void OutputWorker::Write(LogStringBuffer& buffer)
 {
     std::string str = buffer.LogStream.str();
 
+#if defined(LOGGER_NEVER_DROP)
+    for (;; Flush())
+    {
+        std::lock_guard<std::mutex> locker(QueueLock);
+
+        if (QueuePublic.size() >= kWorkQueueLimit)
+        {
+            continue;
+        }
+        else
+        {
+            QueuePublic.emplace_back(buffer.LogLevel, buffer.ChannelName, str);
+            break;
+        }
+    }
+#else // LOGGER_NEVER_DROP
     {
         std::lock_guard<std::mutex> locker(QueueLock);
 
@@ -126,6 +158,7 @@ void OutputWorker::Write(LogStringBuffer& buffer)
         else
             QueuePublic.emplace_back(buffer.LogLevel, buffer.ChannelName, str);
     }
+#endif // LOGGER_NEVER_DROP
 
     QueueCondition.notify_all();
 }
@@ -137,6 +170,7 @@ void OutputWorker::Loop()
         int overrun;
         bool flushRequested = false;
         {
+            // unique_lock used since QueueCondition.wait requires it
             std::unique_lock<std::mutex> locker(QueueLock);
 
             if (QueuePublic.empty())
@@ -144,8 +178,10 @@ void OutputWorker::Loop()
 
             std::swap(QueuePublic, QueuePrivate);
 
+#if !defined(LOGGER_NEVER_DROP)
             overrun = Overrun;
             Overrun = 0;
+#endif // LOGGER_NEVER_DROP
 
             flushRequested = FlushRequested;
             FlushRequested = false;
@@ -160,7 +196,7 @@ void OutputWorker::Loop()
             std::ostringstream oss;
             oss << "Queue overrun. Lost " << overrun << " log messages";
             std::string str = oss.str();
-            QueuedMessage qm(Level::Error, "Logging", str);
+            QueuedMessage qm(Level::Error, "Logger", str);
             Log(qm);
         }
 
@@ -176,21 +212,25 @@ void OutputWorker::Log(QueuedMessage& message)
     std::ostringstream ss;
     ss << '{' << LevelToChar(message.LogLevel) << '-' << message.ChannelName << "} " << message.Message;
 
-#ifdef ANDROID
+#if defined(ANDROID)
     std::string fmtstr = ss.str();
     __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "%s", fmtstr.c_str());
-#else
+#else // ANDROID
     ss << std::endl;
     std::string fmtstr = ss.str();
-    std::cout << fmtstr;
-    #ifdef _WIN32
+    fwrite(fmtstr.c_str(), 1, fmtstr.size(), stdout);
+#endif // ANDROID
+
+#if defined(_WIN32)
+    // If a debugger is present:
+    if (CachedIsDebuggerPresent)
         ::OutputDebugStringA(fmtstr.c_str());
-    #endif
-#endif
+#endif // _WIN32
 }
 
 void OutputWorker::Flush()
 {
+    // unique_lock used since FlushCondition.wait requires it
     std::unique_lock<std::mutex> locker(QueueLock);
 
     FlushRequested = true;
@@ -211,15 +251,15 @@ Channel::Channel(const char* name, Level minLevel)
 
 std::string Channel::GetPrefix() const
 {
-    siamese::Locker locker(PrefixLock);
+    std::lock_guard<std::mutex> locker(PrefixLock);
     return Prefix;
 }
 
 void Channel::SetPrefix(const std::string& prefix)
 {
-    siamese::Locker locker(PrefixLock);
+    std::lock_guard<std::mutex> locker(PrefixLock);
     Prefix = prefix;
 }
 
 
-} // namespace logging
+} // namespace logger

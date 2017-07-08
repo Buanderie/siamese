@@ -26,15 +26,13 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#define ENABLE_TEST_RECOVERY_SORT
+#define ENABLE_TEST_RECOVERY_SORT
 
 #include <iostream>
 #include <iomanip>
 #include <cassert>
 #include <vector>
 using namespace std;
-
-#include "TestTools.h"
 
 #include "../SiameseDecoder.h"
 #include "../SiameseCommon.h"
@@ -57,7 +55,7 @@ static void TestRecoverySort()
             recovery 3:     45678
             recovery 4:     456789
     */
-    siamese::Allocator allocator;
+    pktalloc::Allocator allocator;
     siamese::RecoveryPacketList lister;
     siamese::CheckedRegionState region;
     lister.TheAllocator = &allocator;

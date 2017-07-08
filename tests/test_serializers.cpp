@@ -32,19 +32,18 @@
 #include <vector>
 using namespace std;
 
-#include "TestTools.h"
-
 #include "../siamese.h"
 #include "../SiameseCommon.h"
+#include "../SiameseSerializers.h"
 
-//#define ENABLE_TEST_SERIALIZERS
+#define ENABLE_TEST_SERIALIZERS
 
 inline void Assert(unsigned N, bool condition)
 {
     if (!condition)
     {
         cout << "**************************** FAILED for N = " << N << endl;
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
     }
 }
 
@@ -65,7 +64,7 @@ bool TestPODSerialization16()
     {
         if (buffer[i] != expectedResult[i])
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -75,7 +74,7 @@ bool TestPODSerialization16()
 
     if (siamese::ReadU16_LE(buffer + 1) != x)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -99,7 +98,7 @@ bool TestPODSerialization24()
     {
         if (buffer[i] != expectedResult[i])
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -109,7 +108,7 @@ bool TestPODSerialization24()
 
     if (siamese::ReadU24_LE(buffer + 1) != x)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -133,7 +132,7 @@ bool TestPODSerialization32()
     {
         if (buffer[i] != expectedResult[i])
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -143,7 +142,7 @@ bool TestPODSerialization32()
 
     if (siamese::ReadU32_LE(buffer + 1) != x)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -167,7 +166,7 @@ bool TestPODSerialization64()
     {
         if (buffer[i] != expectedResult[i])
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -177,7 +176,7 @@ bool TestPODSerialization64()
 
     if (siamese::ReadU64_LE(buffer + 1) != x)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -204,7 +203,7 @@ bool TestByteStream()
 
     if (bs.WrittenBytes != 1 + 2 + 3 + 4 + 8)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -222,7 +221,7 @@ bool TestByteStream()
     }
     if (bs1.BytesRead != 1 + 2 + 3 + 4 + 8)
     {
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return false;
     }
 
@@ -244,19 +243,19 @@ bool TestPacketCount_Header()
         unsigned written = siamese::SerializeHeader_PacketCount(count, buffer);
         if (written < 1 || written > siamese::kMaxPacketCountFieldBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned countOut = 0xfffffff;
         int bytes = siamese::DeserializeHeader_PacketCount(buffer, (unsigned)sizeof(buffer), countOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (count != countOut)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -279,19 +278,19 @@ bool TestPacketCount_Footer()
         unsigned written = siamese::SerializeFooter_PacketCount(count, buffer);
         if (written < 1 || written > siamese::kMaxPacketCountFieldBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned countOut = 0xfffffff;
         int bytes = siamese::DeserializeFooter_PacketCount(buffer, written, countOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (count != countOut)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -317,19 +316,19 @@ bool TestPacketLength_Header()
         unsigned written = siamese::SerializeHeader_PacketLength(count, buffer);
         if (written < 1 || written > siamese::kMaxPacketLengthFieldBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned countOut = 0xfffffff;
         int bytes = siamese::DeserializeHeader_PacketLength(buffer, (unsigned)sizeof(buffer), countOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (count != countOut)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -355,19 +354,19 @@ bool TestPacketLength_Footer()
         unsigned written = siamese::SerializeFooter_PacketLength(count, buffer);
         if (written < 1 || written > siamese::kMaxPacketLengthFieldBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned countOut = 0xfffffff;
         int bytes = siamese::DeserializeFooter_PacketLength(buffer, written, countOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (count != countOut)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -391,19 +390,19 @@ bool TestPacketNum_Header()
         unsigned written = siamese::SerializeHeader_PacketNum(count, buffer);
         if (written < 1 || written > siamese::kMaxPacketNumEncodedBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned countOut = 0xfffffff;
         int bytes = siamese::DeserializeHeader_PacketNum(buffer, (unsigned)sizeof(buffer), countOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (count != countOut)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -427,19 +426,19 @@ bool TestPacketNum_Footer()
         unsigned written = siamese::SerializeFooter_PacketNum(count, buffer);
         if (written < 1 || written > siamese::kMaxPacketNumEncodedBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned countOut = 0xfffffff;
         int bytes = siamese::DeserializeFooter_PacketNum(buffer, written, countOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (count != countOut)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }
@@ -485,14 +484,14 @@ bool TestRecoveryMetadata_Footer()
         unsigned written = siamese::SerializeFooter_RecoveryMetadata(metadata, buffer);
         if (written < 1 || written > siamese::kMaxRecoveryMetadataBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         siamese::RecoveryMetadata metadataOut;
         int bytes = siamese::DeserializeFooter_RecoveryMetadata(buffer, written, metadataOut);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (metadata.SumCount > 1)
@@ -502,7 +501,7 @@ bool TestRecoveryMetadata_Footer()
                 metadata.Row != metadataOut.Row ||
                 metadata.SumCount != metadataOut.SumCount)
             {
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return false;
             }
         }
@@ -511,13 +510,13 @@ bool TestRecoveryMetadata_Footer()
             if (metadata.ColumnStart != metadataOut.ColumnStart ||
                 metadata.SumCount != metadataOut.SumCount)
             {
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return false;
             }
             if (metadataOut.LDPCCount != 1 ||
                 metadataOut.Row != 0)
             {
-                SIAMESE_DEBUG_BREAK;
+                SIAMESE_DEBUG_BREAK();
                 return false;
             }
         }
@@ -554,7 +553,7 @@ bool TestNACKLossRange_Header()
         unsigned written = siamese::SerializeHeader_NACKLossRange(columnStart, lossCountM1, buffer);
         if (written < 1 || written > siamese::kMaxRecoveryMetadataBytes)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         unsigned columnStartOut;
@@ -562,13 +561,13 @@ bool TestNACKLossRange_Header()
         int bytes = siamese::DeserializeHeader_NACKLossRange(buffer, (unsigned)sizeof(buffer), columnStartOut, lossCountM1Out);
         if (bytes < 0 || bytes != (int)written)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
         if (columnStart != columnStartOut ||
             lossCountM1 != lossCountM1Out)
         {
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return false;
         }
     }

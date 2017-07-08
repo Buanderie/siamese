@@ -38,9 +38,13 @@
 */
 
 #include "siamese.h"
-#include "gf256.h"
 #include "SiameseTools.h"
-#include "SiameseAllocator.h"
+
+#include "PacketAllocator.h"
+#include "Logger.h"
+
+#include "gf256.h"
+static_assert(PKTALLOC_ALIGN_BYTES == GF256_ALIGN_BYTES, "headers are fighting");
 
 #include <new>
 #include <vector>
@@ -78,13 +82,13 @@ static const unsigned kColumnValuePeriod = 253;
 static const unsigned kRowValuePeriod = 255;
 
 
-GF256_FORCE_INLINE uint8_t GetColumnValue(unsigned column)
+SIAMESE_FORCE_INLINE uint8_t GetColumnValue(unsigned column)
 {
     // Note: This LCG visits each value exactly once
     return (uint8_t)(3 + (column * 199) % kColumnValuePeriod);
 }
 
-GF256_FORCE_INLINE uint8_t GetRowValue(unsigned row)
+SIAMESE_FORCE_INLINE uint8_t GetRowValue(unsigned row)
 {
     return (uint8_t)(1 + (row + 1) % kRowValuePeriod);
 }
@@ -95,25 +99,25 @@ static const unsigned kColumnPeriod = 0x400000;
 static const unsigned kRowPeriod = kRowValuePeriod;
 
 // Returns true if the provided column difference is negative
-GF256_FORCE_INLINE bool IsColumnDeltaNegative(unsigned columnDelta)
+SIAMESE_FORCE_INLINE bool IsColumnDeltaNegative(unsigned columnDelta)
 {
     return (columnDelta >= kColumnPeriod / 2);
 }
 
 // Returns delta (column_a - column_b) between two columns
-GF256_FORCE_INLINE unsigned SubtractColumns(unsigned column_a, unsigned column_b)
+SIAMESE_FORCE_INLINE unsigned SubtractColumns(unsigned column_a, unsigned column_b)
 {
     return (column_a - column_b) % kColumnPeriod;
 }
 
 // Returns sum of two columns as a column number
-GF256_FORCE_INLINE unsigned AddColumns(unsigned column_a, unsigned column_b)
+SIAMESE_FORCE_INLINE unsigned AddColumns(unsigned column_a, unsigned column_b)
 {
     return (column_a + column_b) % kColumnPeriod;
 }
 
 // Increments a column number by 1 and returns the incremented value
-GF256_FORCE_INLINE unsigned IncrementColumn1(unsigned column)
+SIAMESE_FORCE_INLINE unsigned IncrementColumn1(unsigned column)
 {
     return AddColumns(column, 1);
 }
@@ -139,7 +143,7 @@ static const unsigned kSubwindowSize = kColumnLaneCount * 8;
 
 
 // Calculate operation code for the given row and lane
-GF256_FORCE_INLINE unsigned GetRowOpcode(unsigned lane, unsigned row)
+SIAMESE_FORCE_INLINE unsigned GetRowOpcode(unsigned lane, unsigned row)
 {
     SIAMESE_DEBUG_ASSERT(lane < kColumnLaneCount && row < kRowPeriod);
     static const uint32_t kSumMask = (1 << (kColumnSumCount * 2)) - 1;
@@ -182,7 +186,7 @@ static_assert(kCauchyMaxColumns <= 128, "too high");
 //      X(i) = i + kCauchyMaxColumns
 //      Y(j) = j
 // Preconditions: row < kCauchyMaxRows, column < kCauchyMaxColumns
-GF256_FORCE_INLINE uint8_t CauchyElement(unsigned row, unsigned column)
+SIAMESE_FORCE_INLINE uint8_t CauchyElement(unsigned row, unsigned column)
 {
     SIAMESE_DEBUG_ASSERT(row < kCauchyMaxRows && column < kCauchyMaxColumns);
     const uint8_t y_j = (uint8_t)column;
@@ -210,12 +214,12 @@ struct GrowingAlignedDataBuffer
 
     // Growing mantaining existing data in the buffer
     // Newly grown buffer space will be initialized to zeroes
-    bool GrowZeroPadded(Allocator* allocator, unsigned bytes)
+    bool GrowZeroPadded(pktalloc::Allocator* allocator, unsigned bytes)
     {
         SIAMESE_DEBUG_ASSERT(allocator && bytes > 0);
         if (!Data || bytes > Bytes)
         {
-            Data = allocator->Reallocate(Data, bytes, ReallocBehavior::CopyExisting);
+            Data = allocator->Reallocate(Data, bytes, pktalloc::Realloc::CopyExisting);
             if (!Data)
             {
                 Bytes = 0;
@@ -230,10 +234,10 @@ struct GrowingAlignedDataBuffer
 
     // Growing *dropping* existing data in the buffer
     // Newly grown buffer space will *not* be initialized to zeroes
-    bool Initialize(Allocator* allocator, unsigned bytes)
+    bool Initialize(pktalloc::Allocator* allocator, unsigned bytes)
     {
         SIAMESE_DEBUG_ASSERT(allocator && bytes > 0);
-        Data = allocator->Reallocate(Data, bytes, ReallocBehavior::Uninitialized);
+        Data = allocator->Reallocate(Data, bytes, pktalloc::Realloc::Uninitialized);
         if (!Data)
         {
             Bytes = 0;
@@ -244,7 +248,7 @@ struct GrowingAlignedDataBuffer
     }
 
     // Free allocated memory
-    void Free(Allocator* allocator)
+    void Free(pktalloc::Allocator* allocator)
     {
         SIAMESE_DEBUG_ASSERT(allocator);
         if (Data)
@@ -285,11 +289,11 @@ struct GrowingAlignedByteMatrix
 
     // Initialize matrix to the given size
     // New elements have undefined initial state
-    bool Initialize(Allocator* allocator, unsigned rows, unsigned columns);
+    bool Initialize(pktalloc::Allocator* allocator, unsigned rows, unsigned columns);
 
     // Growing mantaining existing data in the buffer
     // New elements have undefined initial state
-    bool Resize(Allocator* allocator, unsigned rows, unsigned columns);
+    bool Resize(pktalloc::Allocator* allocator, unsigned rows, unsigned columns);
 
     // Reset to initial empty state
     void Clear()
@@ -305,7 +309,7 @@ struct GrowingAlignedByteMatrix
     }
 
     // Free allocated memory
-    void Free(Allocator* allocator);
+    void Free(pktalloc::Allocator* allocator);
 };
 
 
@@ -329,7 +333,7 @@ struct OriginalPacket
 
     // Write data to buffer with length prefix and initialize other members
     // Returns the number of bytes overhead, or 0 on out-of-memory error
-    unsigned Initialize(Allocator* allocator, const SiameseOriginalPacket& packet);
+    unsigned Initialize(pktalloc::Allocator* allocator, const SiameseOriginalPacket& packet);
 };
 
 

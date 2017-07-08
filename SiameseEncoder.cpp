@@ -27,15 +27,14 @@
 */
 
 #include "SiameseEncoder.h"
-#include "SiameseLogging.h"
 #include "SiameseSerializers.h"
 
 namespace siamese {
 
 #ifdef SIAMESE_ENCODER_DUMP_VERBOSE
-    static logging::Channel Logger("Encoder", logging::Level::Debug);
+    static logger::Channel Logger("Encoder", logger::Level::Debug);
 #else
-    static logging::Channel Logger("Encoder", logging::Level::Silent);
+    static logger::Channel Logger("Encoder", logger::Level::Silent);
 #endif
 
 
@@ -96,7 +95,7 @@ SiameseResult EncoderPacketWindow::Add(SiameseOriginalPacket& packet)
         {
             EmergencyDisabled = true;
             Logger.Error("WindowAdd.Construct OOM");
-            SIAMESE_DEBUG_BREAK;
+            SIAMESE_DEBUG_BREAK();
             return Siamese_Disabled;
         }
     }
@@ -116,7 +115,7 @@ SiameseResult EncoderPacketWindow::Add(SiameseOriginalPacket& packet)
     {
         EmergencyDisabled = true;
         Logger.Error("WindowAdd.Initialize OOM");
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
         return Siamese_Disabled;
     }
     SIAMESE_DEBUG_ASSERT(original->Column % kColumnLaneCount == element % kColumnLaneCount);
@@ -361,7 +360,7 @@ bool EncoderAcknowledgementState::OnAcknowledgementData(const uint8_t* data, uns
     int headerBytes = DeserializeHeader_PacketNum(data, bytes, nextColumnExpected);
     if (headerBytes < 1)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         return false;
     }
     data += headerBytes, bytes -= headerBytes;
@@ -391,7 +390,7 @@ bool EncoderAcknowledgementState::OnAcknowledgementData(const uint8_t* data, uns
 
     // Copy the new data into place with some padding at the end
     Data = TheAllocator->Reallocate(Data, bytes + kPaddingBytes,
-        ReallocBehavior::Uninitialized);
+        pktalloc::Realloc::Uninitialized);
     memcpy(Data, data, bytes);
     memset(Data + bytes, 0, kPaddingBytes); // Zero guard bytes
 
@@ -418,7 +417,7 @@ bool EncoderAcknowledgementState::DecodeNextRange()
     Offset += lossRangeBytes;
     if (Offset > DataBytes)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         // TBD: Disable codec here?
         return false;
     }
@@ -511,7 +510,7 @@ SiameseResult Encoder::Retransmit(unsigned retransmitMsec, SiameseOriginalPacket
     const uint64_t nowMsec = siamese::GetTimeMsec();
 
     std::ostringstream* pDebugMsg = nullptr;
-    if (Logger.ShouldLog(logging::Level::Debug))
+    if (Logger.ShouldLog(logger::Level::Debug))
     {
         delete pDebugMsg;
         pDebugMsg = new std::ostringstream();
@@ -526,7 +525,7 @@ SiameseResult Encoder::Retransmit(unsigned retransmitMsec, SiameseOriginalPacket
         const unsigned element = Window.ColumnToElement(originalOut.PacketNum);
         if (Window.InvalidElement(element))
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            SIAMESE_DEBUG_BREAK(); // Should never happen
             break;
         }
 
@@ -534,7 +533,7 @@ SiameseResult Encoder::Retransmit(unsigned retransmitMsec, SiameseOriginalPacket
         OriginalPacket* original = Window.GetWindowElement(element);
         if (original->Buffer.Bytes <= 0)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            SIAMESE_DEBUG_BREAK(); // Should never happen
             break;
         }
 
@@ -569,7 +568,7 @@ SiameseResult Encoder::Retransmit(unsigned retransmitMsec, SiameseOriginalPacket
             headerBytesCheck < 1 || lengthCheck == 0 ||
             lengthCheck + headerBytesCheck != original->Buffer.Bytes)
         {
-            SIAMESE_DEBUG_BREAK; // Invalid input
+            SIAMESE_DEBUG_BREAK(); // Invalid input
             Window.EmergencyDisabled = true;
             return Siamese_Disabled;
         }
@@ -658,7 +657,7 @@ void Encoder::AddLightColumns(unsigned row, uint8_t* productWorkspace)
     prng.Seed(row, count);
 
     std::ostringstream* pDebugMsg = nullptr;
-    if (Logger.ShouldLog(logging::Level::Debug))
+    if (Logger.ShouldLog(logger::Level::Debug))
     {
         delete pDebugMsg;
         pDebugMsg = new std::ostringstream();
@@ -755,7 +754,7 @@ SiameseResult Encoder::Encode(SiameseRecoveryPacket& packet)
 
     // Reset workspaces
     const unsigned recoveryBytes = Window.LongestPacket;
-    const unsigned alignedBytes = NextAlignedOffset(recoveryBytes);
+    const unsigned alignedBytes  = pktalloc::NextAlignedOffset(recoveryBytes);
     if (!RecoveryPacket.Initialize(&TheAllocator, 2 * alignedBytes + kMaxRecoveryMetadataBytes))
     {
         Window.EmergencyDisabled = true;
@@ -833,7 +832,7 @@ SiameseResult Encoder::Get(SiameseOriginalPacket& packetOut)
         headerBytesCheck < 1 || lengthCheck == 0 ||
         lengthCheck + headerBytesCheck != original->Buffer.Bytes)
     {
-        SIAMESE_DEBUG_BREAK; // Invalid input
+        SIAMESE_DEBUG_BREAK(); // Invalid input
         Window.EmergencyDisabled = true;
         return Siamese_Disabled;
     }

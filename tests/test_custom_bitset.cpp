@@ -32,25 +32,23 @@
 #include <vector>
 using namespace std;
 
-#include "TestTools.h"
-
 #include "../SiameseDecoder.h"
 
-//#define ENABLE_TEST_BITFIELD
+#define ENABLE_TEST_BITFIELD
 
 inline void Assert(unsigned N, bool condition)
 {
     if (!condition)
     {
         cout << "**************************** FAILED for N = " << N << endl;
-        SIAMESE_DEBUG_BREAK;
+        SIAMESE_DEBUG_BREAK();
     }
 }
 
 template<unsigned BFSize>
 void TestBitfield()
 {
-    siamese::CustomBitSet<BFSize> bf;
+    pktalloc::CustomBitSet<BFSize> bf;
 
     // Set/Clear/Check:
     cout << "Testing Set/Clear/Check for N = " << BFSize << endl;

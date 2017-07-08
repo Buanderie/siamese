@@ -30,11 +30,16 @@
 #include <iomanip>
 #include <cassert>
 #include <stdint.h>
-#include <Windows.h>
-#include "TestTools.h"
 using namespace std;
 
-//#define ENABLE_GENTAB_GRAYCODE
+#ifdef _WIN32
+    #include <Windows.h>
+    #include <intrin.h>
+#endif
+
+#include "../SiameseTools.h"
+
+#define ENABLE_GENTAB_GRAYCODE
 
 /*
     I did some exploration into different kinds of Gray codes to see if there was a better choice.

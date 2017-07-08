@@ -9,7 +9,7 @@
     * Redistributions in binary form must reproduce the above copyright notice,
       this list of conditions and the following disclaimer in the documentation
       and/or other materials provided with the distribution.
-    * Neither the name of Siamese nor the names of its contributors may be
+    * Neither the name of PacketAllocator nor the names of its contributors may be
       used to endorse or promote products derived from this software without
       specific prior written permission.
 
@@ -26,18 +26,17 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "SiameseAllocator.h"
+#include "PacketAllocator.h"
 
-// Enable costly integrity checks before and after each operation
-//#define SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
+#include <cstring> // memcpy
 
-#if defined(SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS) && defined(SIAMESE_DEBUG)
+#if defined(PKTALLOC_ENABLE_ALLOCATOR_INTEGRITY_CHECKS) && defined(PKTALLOC_DEBUG)
     #define ALLOC_DEBUG_INTEGRITY_CHECK() IntegrityCheck();
-#else // SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
+#else // PKTALLOC_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
     #define ALLOC_DEBUG_INTEGRITY_CHECK() do {} while (false);
-#endif // SIAMESE_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
+#endif // PKTALLOC_ENABLE_ALLOCATOR_INTEGRITY_CHECKS
 
-namespace siamese {
+namespace pktalloc {
 
 
 //------------------------------------------------------------------------------
@@ -62,7 +61,7 @@ static inline void SIMDSafeFree(void* ptr)
     unsigned offset = data[-1];
     if (offset >= kAlignmentBytes)
     {
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        PKTALLOC_DEBUG_BREAK(); // Should never happen
         return;
     }
     data -= kAlignmentBytes - offset;
@@ -141,22 +140,22 @@ unsigned Allocator::GetMemoryAllocatedBytes() const
 
 bool Allocator::IntegrityCheck() const
 {
-#ifdef SIAMESE_ALLOCATOR_SHRINK
-    SIAMESE_DEBUG_ASSERT(PreferredWindowsCount >= EmptyWindowCount);
-#endif // SIAMESE_ALLOCATOR_SHRINK
+#ifdef PKTALLOC_ALLOCATOR_SHRINK
+    PKTALLOC_DEBUG_ASSERT(PreferredWindowsCount >= EmptyWindowCount);
+#endif // PKTALLOC_ALLOCATOR_SHRINK
 
     unsigned emptyCount = 0;
     unsigned preallocatedCount = 0;
 
-    SIAMESE_DEBUG_ASSERT(!PreferredWindowsHead || PreferredWindowsHead->Prev == nullptr);
-    SIAMESE_DEBUG_ASSERT(!PreferredWindowsTail || PreferredWindowsTail->Next == nullptr);
+    PKTALLOC_DEBUG_ASSERT(!PreferredWindowsHead || PreferredWindowsHead->Prev == nullptr);
+    PKTALLOC_DEBUG_ASSERT(!PreferredWindowsTail || PreferredWindowsTail->Next == nullptr);
 
     unsigned ii = 0;
     for (WindowHeader* windowHeader = PreferredWindowsHead; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
         if (ii >= PreferredWindowsCount)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         unsigned jj = 0;
@@ -164,29 +163,29 @@ bool Allocator::IntegrityCheck() const
         {
             if (windowHeader == other && ii != jj)
             {
-                SIAMESE_DEBUG_BREAK; // Should never happen
+                PKTALLOC_DEBUG_BREAK(); // Should never happen
                 return false;
             }
         }
         if (windowHeader->InFullList)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         if (windowHeader->FreeUnitCount <= 0 || windowHeader->FreeUnitCount > kWindowMaxUnits)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         if (windowHeader->ResumeScanOffset > kWindowMaxUnits)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         unsigned setCount = windowHeader->Used.RangePopcount(0, kWindowMaxUnits);
         if (setCount != kWindowMaxUnits - windowHeader->FreeUnitCount)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         if (windowHeader->Preallocated)
@@ -194,24 +193,24 @@ bool Allocator::IntegrityCheck() const
         else if (windowHeader->FreeUnitCount == kWindowMaxUnits)
             ++emptyCount;
     }
-    SIAMESE_DEBUG_ASSERT(ii == PreferredWindowsCount);
+    PKTALLOC_DEBUG_ASSERT(ii == PreferredWindowsCount);
 
     ii = 0;
     for (WindowHeader* windowHeader = FullWindowsHead, *prev = nullptr; windowHeader; windowHeader = windowHeader->Next, ++ii)
     {
-        SIAMESE_DEBUG_ASSERT(windowHeader->Prev == prev);
+        PKTALLOC_DEBUG_ASSERT(windowHeader->Prev == prev);
         prev = windowHeader;
 
         if (ii >= FullWindowsCount)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         for (WindowHeader* other = PreferredWindowsHead; other; other = other->Next)
         {
             if (windowHeader == other)
             {
-                SIAMESE_DEBUG_BREAK; // Should never happen
+                PKTALLOC_DEBUG_BREAK(); // Should never happen
                 return false;
             }
         }
@@ -220,48 +219,48 @@ bool Allocator::IntegrityCheck() const
         {
             if (windowHeader == other && ii != jj)
             {
-                SIAMESE_DEBUG_BREAK; // Should never happen
+                PKTALLOC_DEBUG_BREAK(); // Should never happen
                 return false;
             }
         }
         if (!windowHeader->InFullList)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         if (windowHeader->FreeUnitCount > kPreferredThresholdUnits)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         if (windowHeader->ResumeScanOffset > kWindowMaxUnits)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         unsigned setCount = windowHeader->Used.RangePopcount(0, kWindowMaxUnits);
         if (setCount != kWindowMaxUnits - windowHeader->FreeUnitCount)
         {
-            SIAMESE_DEBUG_BREAK; // Should never happen
+            PKTALLOC_DEBUG_BREAK(); // Should never happen
             return false;
         }
         if (windowHeader->Preallocated)
             ++preallocatedCount;
     }
-    SIAMESE_DEBUG_ASSERT(ii == FullWindowsCount);
+    PKTALLOC_DEBUG_ASSERT(ii == FullWindowsCount);
 
     if (preallocatedCount != kPreallocatedWindows)
     {
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        PKTALLOC_DEBUG_BREAK(); // Should never happen
         return false;
     }
-#ifdef SIAMESE_ALLOCATOR_SHRINK
+#ifdef PKTALLOC_ALLOCATOR_SHRINK
     if (emptyCount != EmptyWindowCount)
     {
-        SIAMESE_DEBUG_BREAK; // Should never happen
+        PKTALLOC_DEBUG_BREAK(); // Should never happen
         return false;
     }
-#endif // SIAMESE_ALLOCATOR_SHRINK
+#endif // PKTALLOC_ALLOCATOR_SHRINK
     return true;
 }
 
@@ -274,14 +273,14 @@ uint8_t* Allocator::Allocate(unsigned bytes)
 
     // Calculate number of units required by this allocation
     // Note: +1 for the AllocationHeader
-    const unsigned units = (bytes + kOverallocationBytes + kUnitSize - 1) / kUnitSize + 1;
+    const unsigned units = (bytes + kUnitSize - 1) / kUnitSize + 1;
 
     if (units > kFallbackThresholdUnits)
         return FallbackAllocate(bytes);
 
     for (WindowHeader* windowHeader = PreferredWindowsHead, *prev = nullptr; windowHeader; prev = windowHeader, windowHeader = windowHeader->Next)
     {
-        SIAMESE_DEBUG_ASSERT(!windowHeader->InFullList);
+        PKTALLOC_DEBUG_ASSERT(!windowHeader->InFullList);
 
         if (windowHeader->FreeUnitCount < units)
             continue;
@@ -299,8 +298,8 @@ uint8_t* Allocator::Allocate(unsigned bytes)
                 break;
 
             regionEnd = usedMask.FindFirstSet(regionStart + 1, regionEnd);
-            SIAMESE_DEBUG_ASSERT(regionEnd > regionStart);
-            SIAMESE_DEBUG_ASSERT(regionEnd <= usedMask.kValidBits);
+            PKTALLOC_DEBUG_ASSERT(regionEnd > regionStart);
+            PKTALLOC_DEBUG_ASSERT(regionEnd <= usedMask.kValidBits);
 
             if (regionEnd - regionStart < units)
             {
@@ -317,13 +316,13 @@ uint8_t* Allocator::Allocate(unsigned bytes)
             regionHeader->Freed     = false;
 
             // Update window header
-#ifdef SIAMESE_ALLOCATOR_SHRINK
+#ifdef PKTALLOC_ALLOCATOR_SHRINK
             if (windowHeader->FreeUnitCount >= kWindowMaxUnits && !windowHeader->Preallocated)
             {
-                SIAMESE_DEBUG_ASSERT(EmptyWindowCount > 0);
+                PKTALLOC_DEBUG_ASSERT(EmptyWindowCount > 0);
                 --EmptyWindowCount;
             }
-#endif // SIAMESE_ALLOCATOR_SHRINK
+#endif // PKTALLOC_ALLOCATOR_SHRINK
             windowHeader->FreeUnitCount -= units;
             usedMask.SetRange(regionStart, regionStart + units);
             windowHeader->ResumeScanOffset = regionStart + units;
@@ -334,13 +333,13 @@ uint8_t* Allocator::Allocate(unsigned bytes)
             MoveFirstFewWindowsToFull(moveStopWindow);
 
             uint8_t* data = region + kUnitSize;
-#ifdef SIAMESE_SCRUB_MEMORY
+#ifdef PKTALLOC_SCRUB_MEMORY
             memset(data, 0, (units - 1) * kUnitSize);
-#endif // SIAMESE_SCRUB_MEMORY
-            SIAMESE_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
-            SIAMESE_DEBUG_ASSERT((uint8_t*)regionHeader >= (uint8_t*)regionHeader->Header + kWindowHeaderBytes);
-            SIAMESE_DEBUG_ASSERT(regionHeader->GetUnitStart() < kWindowMaxUnits);
-            SIAMESE_DEBUG_ASSERT(regionHeader->GetUnitStart() + regionHeader->UsedUnits <= kWindowMaxUnits);
+#endif // PKTALLOC_SCRUB_MEMORY
+            PKTALLOC_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
+            PKTALLOC_DEBUG_ASSERT((uint8_t*)regionHeader >= (uint8_t*)regionHeader->Header + kWindowHeaderBytes);
+            PKTALLOC_DEBUG_ASSERT(regionHeader->GetUnitStart() < kWindowMaxUnits);
+            PKTALLOC_DEBUG_ASSERT(regionHeader->GetUnitStart() + regionHeader->UsedUnits <= kWindowMaxUnits);
             return data;
         }
     }
@@ -397,11 +396,11 @@ void Allocator::MoveFirstFewWindowsToFull(WindowHeader* stopWindow)
     PreferredWindowsCount -= movedCount;
     if (stopWindow)
     {
-#ifdef SIAMESE_DEBUG
+#ifdef PKTALLOC_DEBUG
         stopWindow->Prev = nullptr;
-#endif // SIAMESE_DEBUG
+#endif // PKTALLOC_DEBUG
         PreferredWindowsHead = stopWindow;
-        SIAMESE_DEBUG_ASSERT(PreferredWindowsTail != nullptr);
+        PKTALLOC_DEBUG_ASSERT(PreferredWindowsTail != nullptr);
 
         if (keepHead)
         {
@@ -454,17 +453,17 @@ uint8_t* Allocator::AllocateFromNewWindow(unsigned units)
     regionHeader->Freed     = false;
 
     uint8_t* data = (uint8_t*)regionHeader + kUnitSize;
-#ifdef SIAMESE_SCRUB_MEMORY
+#ifdef PKTALLOC_SCRUB_MEMORY
     memset(data, 0, (units - 1) * kUnitSize);
-#endif // SIAMESE_SCRUB_MEMORY
-    SIAMESE_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
+#endif // PKTALLOC_SCRUB_MEMORY
+    PKTALLOC_DEBUG_ASSERT((uintptr_t)data % kUnitSize == 0);
 
     ALLOC_DEBUG_INTEGRITY_CHECK();
 
     return data;
 }
 
-uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior behavior)
+uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, Realloc behavior)
 {
     ALLOC_DEBUG_INTEGRITY_CHECK();
 
@@ -475,19 +474,19 @@ uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior beh
         Free(ptr);
         return nullptr;
     }
-    SIAMESE_DEBUG_ASSERT((uintptr_t)ptr % kUnitSize == 0);
+    PKTALLOC_DEBUG_ASSERT((uintptr_t)ptr % kUnitSize == 0);
 
     AllocationHeader* regionHeader = (AllocationHeader*)(ptr - kUnitSize);
     if (regionHeader->Freed)
     {
-        SIAMESE_DEBUG_BREAK; // Double-free
+        PKTALLOC_DEBUG_BREAK(); // Double-free
         return Allocate(bytes);
     }
 
     const unsigned existingUnits = regionHeader->UsedUnits;
-#ifndef SIAMESE_DISABLE_ALLOCATOR
-    SIAMESE_DEBUG_ASSERT(!regionHeader->Header || existingUnits <= kFallbackThresholdUnits);
-#endif // SIAMESE_DISABLE_ALLOCATOR
+#ifndef PKTALLOC_DISABLE_ALLOCATOR
+    PKTALLOC_DEBUG_ASSERT(!regionHeader->Header || existingUnits <= kFallbackThresholdUnits);
+#endif // PKTALLOC_DISABLE_ALLOCATOR
 
     // If the existing allocation is big enough:
     const unsigned requestedUnits = (bytes + kUnitSize - 1) / kUnitSize + 1;
@@ -500,7 +499,7 @@ uint8_t* Allocator::Reallocate(uint8_t* ptr, unsigned bytes, ReallocBehavior beh
         return nullptr;
 
     // Copy old data
-    if (behavior == ReallocBehavior::CopyExisting)
+    if (behavior == Realloc::CopyExisting)
         memcpy(newPtr, ptr, (existingUnits - 1) * kUnitSize);
 
     Free(ptr);
@@ -516,13 +515,13 @@ void Allocator::Free(uint8_t* ptr)
 
     if (!ptr)
         return;
-    SIAMESE_DEBUG_ASSERT((uintptr_t)ptr % kUnitSize == 0);
+    PKTALLOC_DEBUG_ASSERT((uintptr_t)ptr % kUnitSize == 0);
 
     AllocationHeader* regionHeader = (AllocationHeader*)(ptr - kUnitSize);
 
     if (regionHeader->Freed)
     {
-        SIAMESE_DEBUG_BREAK; // Double-free
+        PKTALLOC_DEBUG_BREAK(); // Double-free
         return;
     }
     regionHeader->Freed = true;
@@ -535,12 +534,12 @@ void Allocator::Free(uint8_t* ptr)
     }
 
     const unsigned units = regionHeader->UsedUnits;
-    SIAMESE_DEBUG_ASSERT(units >= 2 && units <= kFallbackThresholdUnits);
+    PKTALLOC_DEBUG_ASSERT(units >= 2 && units <= kFallbackThresholdUnits);
 
-    SIAMESE_DEBUG_ASSERT((uint8_t*)regionHeader >= (uint8_t*)regionHeader->Header + kWindowHeaderBytes);
+    PKTALLOC_DEBUG_ASSERT((uint8_t*)regionHeader >= (uint8_t*)regionHeader->Header + kWindowHeaderBytes);
     unsigned regionStart = regionHeader->GetUnitStart();
-    SIAMESE_DEBUG_ASSERT(regionStart < kWindowMaxUnits);
-    SIAMESE_DEBUG_ASSERT(regionStart + regionHeader->UsedUnits <= kWindowMaxUnits);
+    PKTALLOC_DEBUG_ASSERT(regionStart < kWindowMaxUnits);
+    PKTALLOC_DEBUG_ASSERT(regionStart + regionHeader->UsedUnits <= kWindowMaxUnits);
 
     unsigned regionEnd = regionStart + units;
 
@@ -572,7 +571,7 @@ void Allocator::Free(uint8_t* ptr)
             FullWindowsHead = next;
         if (next)
             next->Prev = prev;
-        SIAMESE_DEBUG_ASSERT(FullWindowsCount > 0);
+        PKTALLOC_DEBUG_ASSERT(FullWindowsCount > 0);
         --FullWindowsCount;
 
         // Insert at end of the PreferredWindows list
@@ -586,19 +585,19 @@ void Allocator::Free(uint8_t* ptr)
         PreferredWindowsTail = windowHeader;
     }
 
-#ifdef SIAMESE_ALLOCATOR_SHRINK
+#ifdef PKTALLOC_ALLOCATOR_SHRINK
     if (windowHeader->FreeUnitCount >= kWindowMaxUnits && !windowHeader->Preallocated)
     {
         // If we should do some bulk cleanup:
         if (++EmptyWindowCount >= kEmptyWindowCleanupThreshold)
             FreeEmptyWindows();
     }
-#endif // SIAMESE_ALLOCATOR_SHRINK
+#endif // PKTALLOC_ALLOCATOR_SHRINK
 
     ALLOC_DEBUG_INTEGRITY_CHECK();
 }
 
-#ifdef SIAMESE_ALLOCATOR_SHRINK
+#ifdef PKTALLOC_ALLOCATOR_SHRINK
 
 void Allocator::FreeEmptyWindows()
 {
@@ -623,10 +622,10 @@ void Allocator::FreeEmptyWindows()
 
             SIMDSafeFree(windowHeader);
 
-            SIAMESE_DEBUG_ASSERT(PreferredWindowsCount > 0);
+            PKTALLOC_DEBUG_ASSERT(PreferredWindowsCount > 0);
             --PreferredWindowsCount;
 
-            SIAMESE_DEBUG_ASSERT(EmptyWindowCount > 0);
+            PKTALLOC_DEBUG_ASSERT(EmptyWindowCount > 0);
             if (--EmptyWindowCount <= kEmptyWindowMinimum)
                 break;
         }
@@ -639,13 +638,13 @@ void Allocator::FreeEmptyWindows()
     ALLOC_DEBUG_INTEGRITY_CHECK();
 }
 
-#endif // SIAMESE_ALLOCATOR_SHRINK
+#endif // PKTALLOC_ALLOCATOR_SHRINK
 
 uint8_t* Allocator::FallbackAllocate(unsigned bytes)
 {
     // Calculate number of units required by this allocation
     // Note: +1 for the AllocationHeader
-    const unsigned units = (bytes + kOverallocationBytes + kUnitSize - 1) / kUnitSize + 1;
+    const unsigned units = (bytes + kUnitSize - 1) / kUnitSize + 1;
 
     uint8_t* ptr = SIMDSafeAllocate(kUnitSize * units);
 
@@ -659,9 +658,9 @@ uint8_t* Allocator::FallbackAllocate(unsigned bytes)
 
 void Allocator::FallbackFree(uint8_t* ptr)
 {
-    SIAMESE_DEBUG_ASSERT(ptr);
+    PKTALLOC_DEBUG_ASSERT(ptr);
     SIMDSafeFree(ptr - kUnitSize);
 }
 
 
-} // namespace siamese
+} // namespace pktalloc
