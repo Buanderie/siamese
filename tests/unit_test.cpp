@@ -67,15 +67,6 @@ static const unsigned kSeed = 1013;
 #endif
 
 
-bool SetCurrentThreadPriority()
-{
-#ifdef _WIN32
-    return 0 != ::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
-#else
-    return -1 != nice(2);
-#endif
-}
-
 static void WriteRandomSelfCheckingPacket(siamese::PCGRandom& prng, void* packet, unsigned bytes)
 {
     uint8_t* buffer = (uint8_t*)packet;
@@ -1490,8 +1481,6 @@ void HARQSimulation::Run()
 
 int main()
 {
-    SetCurrentThreadPriority();
-
     FunctionTimer t_siamese_init("siamese_init");
 
     t_siamese_init.BeginCall();

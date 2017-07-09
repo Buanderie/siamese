@@ -75,6 +75,8 @@
 #include <condition_variable>
 #include <atomic>
 #include <list>
+#include <thread>
+#include <memory>
 
 
 // Compiler-specific force inline keyword
@@ -237,17 +239,17 @@ private:
 
 #if !defined(LOGGER_NEVER_DROP)
     // Number of log queue overruns
-    std::atomic_int Overrun = 0;
+    std::atomic_int Overrun;
 #endif // LOGGER_NEVER_DROP
 
     // Has a flush been requested?
-    std::atomic_bool FlushRequested = 0;
+    std::atomic_bool FlushRequested;
 
     // Condition variable to wait for Flush result
     std::condition_variable FlushCondition;
 
     // Queue processing thread
-    std::unique_ptr<std::thread> Thread;
+    std::shared_ptr<std::thread> Thread;
 
     // Should thread terminate?
     std::atomic_bool Terminated;

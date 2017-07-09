@@ -40,12 +40,6 @@ add_library(siamese ${SIAMESE_LIB_SRCFILES})
 add_executable(unit_test tests/unit_test.cpp)
 target_link_libraries(unit_test gf256 logger pktalloc siamese)
 
-set(TESTS_GENTAB_GRAYCODE_SRCFILES
-        tests/gentab_graycode.cpp)
-
-add_executable(gentab_graycode ${TESTS_GENTAB_GRAYCODE_SRCFILES})
-target_link_libraries(gentab_graycode gf256 logger pktalloc siamese)
-
 set(TESTS_GENTAB_PRIMES_SRCFILES
         tests/gentab_primes.cpp)
 

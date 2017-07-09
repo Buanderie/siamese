@@ -29,6 +29,7 @@
 #include "PacketAllocator.h"
 
 #include <cstring> // memcpy
+#include <cstdlib> // calloc
 
 #if defined(PKTALLOC_ENABLE_ALLOCATOR_INTEGRITY_CHECKS) && defined(PKTALLOC_DEBUG)
     #define ALLOC_DEBUG_INTEGRITY_CHECK() IntegrityCheck();

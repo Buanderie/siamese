@@ -90,7 +90,11 @@ SiameseResult Decoder::Get(SiameseOriginalPacket& packetOut)
 #ifdef SIAMESE_DEBUG
     // Check: Deserialize length from the front
     unsigned lengthCheck;
-    int headerBytesCheck = DeserializeHeader_PacketLength(original->Buffer.Data, original->Buffer.Bytes, lengthCheck);
+    int headerBytesCheck = DeserializeHeader_PacketLength(
+        original->Buffer.Data,
+        original->Buffer.Bytes,
+        lengthCheck);
+
     if (lengthCheck != length || (int)headerBytes != headerBytesCheck ||
         headerBytesCheck < 1 || lengthCheck == 0 ||
         lengthCheck + headerBytesCheck != original->Buffer.Bytes)
@@ -106,7 +110,9 @@ SiameseResult Decoder::Get(SiameseOriginalPacket& packetOut)
     return Siamese_Success;
 }
 
-SiameseResult Decoder::Acknowledge(uint8_t* buffer, unsigned byteLimit, unsigned ageMsec, unsigned& usedBytesOut)
+SiameseResult Decoder::Acknowledge(
+    uint8_t* buffer, unsigned byteLimit,
+    unsigned ageMsec, unsigned& usedBytesOut)
 {
     if (Window.EmergencyDisabled)
         return Siamese_Disabled;
@@ -137,7 +143,15 @@ SiameseResult Decoder::Acknowledge(uint8_t* buffer, unsigned byteLimit, unsigned
 
     // If there is no missing data:
     if (Window.InvalidElement(nextElementExpected))
-        goto EncodingSuccess;
+    {
+        // Write used bytes
+        usedBytesOut = (unsigned)(uintptr_t)(buffer - bufferStart);
+
+        Stats.Counts[SiameseDecoderStats_AckCount]++;
+        Stats.Counts[SiameseDecoderStats_AckBytes] += usedBytesOut;
+
+        return Siamese_Success;
+    }
 
     SIAMESE_DEBUG_ASSERT(Window.GetWindowElement(nextElementExpected)->Buffer.Bytes == 0);
 
@@ -270,7 +284,6 @@ SiameseResult Decoder::Acknowledge(uint8_t* buffer, unsigned byteLimit, unsigned
         Logger.Debug(pDebugMsg->str());
     }
 
-EncodingSuccess:
     // Write used bytes
     usedBytesOut = (unsigned)(uintptr_t)(buffer - bufferStart);
 

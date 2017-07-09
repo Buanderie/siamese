@@ -108,8 +108,9 @@ void OutputWorker::Start()
 #if !defined(LOGGER_NEVER_DROP)
     Overrun    = 0;
 #endif // LOGGER_NEVER_DROP
+    FlushRequested = false;
     Terminated = false;
-    Thread     = std::make_unique<std::thread>(&OutputWorker::Loop, this);
+    Thread = std::make_shared<std::thread>(&OutputWorker::Loop, this);
 }
 
 void OutputWorker::Stop()
