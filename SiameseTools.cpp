@@ -57,7 +57,7 @@ static void InitPerfFrequencyInverse()
 {
     LARGE_INTEGER freq = {};
     if (!::QueryPerformanceFrequency(&freq) || freq.QuadPart == 0)
-        return 0;
+        return;
     PerfFrequencyInverse = 1000000. / (double)freq.QuadPart;
 }
 #elif __MACH__

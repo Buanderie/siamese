@@ -34,6 +34,7 @@ using namespace std;
 #include "../Logger.h"
 #include "../siamese.h"
 #include "../SiameseTools.h"
+#include "../SiameseSerializers.h"
 
 #define ENABLE_UNIT_TEST
 
@@ -41,8 +42,8 @@ using namespace std;
 #define TEST_ENABLE_DECODER
 
 #define TEST_BLOCK
-#define TEST_STREAMING
-//#define TEST_HARQ_STREAM
+//#define TEST_STREAMING
+#define TEST_HARQ_STREAM
 
 //#define HARQ_RETRANSMIT_WITH_FEC
 
@@ -706,7 +707,7 @@ class HARQSimulation
 
     // Channel character
     static const unsigned kLossPercent = 5;
-    static const unsigned kRedundancyPercent = 6;
+    static const unsigned kRedundancyPercent = 10;
     static const unsigned kPacketsPerInterval = 4;
     static const unsigned kPacketIntervalMsec = 2;
     static const unsigned kQueueDepth = 10;
